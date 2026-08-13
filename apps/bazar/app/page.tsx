@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { money } from "./lib/format";
 import { businessRules, initialUsers, paymentProviders, products } from "./lib/seed";
-import type { CartItem, Order, Product, UserAccount, UserRole, View } from "./lib/types";
+import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
@@ -11,6 +11,7 @@ export default function BazarApp() {
   const [checkoutStep, setCheckoutStep] = useState<"carrito" | "entrega" | "pago">("carrito");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [payments, setPayments] = useState<PaymentAttempt[]>([]);
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -93,14 +94,26 @@ export default function BazarApp() {
 
     const order: Order = {
       id: `BZ-${1043 + orders.length}`,
-      status: `Pago simulado: ${paymentMethod}`,
+      status: "Pedido pagado",
+      paymentStatus: "aprobado",
+      paymentProvider: paymentMethod,
       total: orderTotal,
       commission,
       premier,
       items: cart,
     };
+    const payment: PaymentAttempt = {
+      id: `PAY-${2200 + payments.length}`,
+      orderId: order.id,
+      provider: paymentMethod,
+      status: "aprobado",
+      amount: orderTotal,
+      createdAt: "Septiembre MVP",
+      reference: `SIM-${paymentMethod.toUpperCase().replaceAll(" ", "-")}-${1043 + orders.length}`,
+    };
 
     setOrders((current) => [order, ...current]);
+    setPayments((current) => [payment, ...current]);
     setCart([]);
     setCheckoutStep("carrito");
     setActiveUser((current) => current ?? initialUsers[0]);
@@ -352,17 +365,42 @@ export default function BazarApp() {
                 )}
 
                 {checkoutStep === "pago" && (
-                  <div className="payment-options">
-                    {["Webpay", "Mercado Pago", "Transferencia", "Saldo Bazar"].map((method) => (
-                      <button
-                        type="button"
-                        key={method}
-                        className={paymentMethod === method ? "active" : ""}
-                        onClick={() => setPaymentMethod(method)}
-                      >
-                        {method}
-                      </button>
-                    ))}
+                  <div className="payment-stage">
+                    <div className="payment-options">
+                      {["Mercado Pago", "Webpay", "Transferencia", "Saldo Bazar"].map((method) => (
+                        <button
+                          type="button"
+                          key={method}
+                          className={paymentMethod === method ? "active" : ""}
+                          onClick={() => setPaymentMethod(method)}
+                        >
+                          {method}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="payment-readiness">
+                      <strong>Flujo preparado</strong>
+                      <span>Crear sesion de pago</span>
+                      <span>Redirigir a checkout</span>
+                      <span>Confirmar por webhook</span>
+                    </div>
+                  </div>
+                )}
+
+                {checkoutStep === "carrito" && payments.length > 0 && (
+                  <div className="last-payment">
+                    <strong>Ultimo pago simulado</strong>
+                    <span>{payments[0].id} · {payments[0].provider} · {payments[0].status}</span>
+                  </div>
+                )}
+
+                {checkoutStep === "pago" && (
+                  <div className="gateway-note">
+                    <strong>{paymentMethod}</strong>
+                    <span>
+                      En produccion este boton creara la sesion real de pago y luego volvera
+                      a Bazar con el pedido aprobado o rechazado.
+                    </span>
                   </div>
                 )}
 
@@ -707,17 +745,47 @@ export default function BazarApp() {
               <div className="cards">
                 <article><strong>10%</strong><span>Comision marketplace</span></article>
                 <article><strong>{money.format(businessRules.sponsoredProductsMonthlyFee)}</strong><span>Producto destacado</span></article>
-                <article><strong>{money.format(businessRules.merchantProMonthlyFee)}</strong><span>Plan comercio Pro</span></article>
-                <article><strong>Por definir</strong><span>Fee despacho</span></article>
+                <article><strong>{payments.length}</strong><span>Pagos simulados</span></article>
+                <article><strong>{money.format(payments.reduce((total, payment) => total + payment.amount, 0))}</strong><span>Total procesado</span></article>
               </div>
               <div className="payment-grid">
                 {paymentProviders.map((provider) => (
                   <article className="payment-card" key={provider.name}>
                     <strong>{provider.name}</strong>
-                    <span>{provider.status}</span>
+                    <span>{provider.priority} · {provider.status}</span>
                     <p>{provider.use}</p>
+                    <small>{provider.settlement}</small>
                   </article>
                 ))}
+              </div>
+              <div className="payments-layout">
+                <div className="table-panel">
+                  <h2>Transacciones</h2>
+                  {payments.length === 0 ? (
+                    <p>Aun no hay pagos. Simula una compra desde Comprar para ver el registro.</p>
+                  ) : (
+                    payments.map((payment) => (
+                      <article className="payment-row" key={payment.id}>
+                        <div>
+                          <strong>{payment.id}</strong>
+                          <span>{payment.orderId} · {payment.provider}</span>
+                        </div>
+                        <mark>{payment.status}</mark>
+                        <strong>{money.format(payment.amount)}</strong>
+                      </article>
+                    ))
+                  )}
+                </div>
+                <div className="payment-blueprint">
+                  <h2>Ruta septiembre</h2>
+                  <ol>
+                    <li>Crear orden pendiente antes de enviar a la pasarela.</li>
+                    <li>Crear sesion de pago con Mercado Pago o Webpay.</li>
+                    <li>Redirigir al cliente al checkout seguro.</li>
+                    <li>Recibir webhook y marcar pedido aprobado o rechazado.</li>
+                    <li>Conciliar comision Bazar y saldo del comercio.</li>
+                  </ol>
+                </div>
               </div>
               <div className="revenue-plan">
                 <h2>Fuentes de ingreso</h2>
@@ -825,6 +893,7 @@ function OrderList({ orders }: { orders: Order[] }) {
           <div>
             <strong>{order.id}</strong>
             <span>{order.items.length} productos · {order.status}</span>
+            <mark>{order.paymentProvider} · {order.paymentStatus}</mark>
           </div>
           <div>
             <strong>{money.format(order.total)}</strong>

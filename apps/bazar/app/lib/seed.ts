@@ -74,18 +74,31 @@ export const initialUsers: UserAccount[] = [
 export const paymentProviders: PaymentProvider[] = [
   {
     name: "Webpay / Transbank",
-    status: "Pendiente integracion",
+    status: "Candidato Chile",
     use: "Pagos con tarjeta y transferencia local.",
+    settlement: "Liquidacion bancaria del comercio o cuenta Bazar.",
+    priority: "Etapa 2",
   },
   {
-    name: "Stripe",
-    status: "Fase futura",
-    use: "Suscripciones, comercios Pro y pagos internacionales.",
+    name: "Mercado Pago",
+    status: "Recomendado MVP",
+    use: "Checkout redirigido para cobrar rapido en septiembre.",
+    settlement: "Bazar cobra y concilia pagos aprobados.",
+    priority: "Etapa 1",
   },
   {
-    name: "Bazar Wallet",
-    status: "Diseno",
+    name: "Transferencia",
+    status: "Manual controlado",
+    use: "Respaldo para comercios locales al inicio.",
+    settlement: "Validacion manual contra cartola bancaria.",
+    priority: "Etapa 1",
+  },
+  {
+    name: "Saldo Bazar",
+    status: "Futuro",
     use: "Saldo interno, devoluciones y beneficios Premier.",
+    settlement: "Requiere reglas internas y control contable.",
+    priority: "Etapa 3",
   },
 ];
 

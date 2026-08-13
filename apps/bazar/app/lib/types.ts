@@ -16,9 +16,23 @@ export type Product = {
 
 export type CartItem = Product & { quantity: number };
 
+export type PaymentStatus = "pendiente" | "aprobado" | "rechazado";
+
+export type PaymentAttempt = {
+  id: string;
+  orderId: string;
+  provider: string;
+  status: PaymentStatus;
+  amount: number;
+  createdAt: string;
+  reference: string;
+};
+
 export type Order = {
   id: string;
   status: string;
+  paymentStatus: PaymentStatus;
+  paymentProvider: string;
   total: number;
   commission: number;
   premier: number;
@@ -37,4 +51,6 @@ export type PaymentProvider = {
   name: string;
   status: string;
   use: string;
+  settlement: string;
+  priority: string;
 };

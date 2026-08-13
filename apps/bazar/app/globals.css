@@ -570,6 +570,11 @@ select {
   gap: 8px;
 }
 
+.payment-stage {
+  display: grid;
+  gap: 10px;
+}
+
 .payment-options button {
   min-height: 40px;
   border: 1px solid #e0e0e0;
@@ -585,6 +590,30 @@ select {
   border-color: var(--blue);
   background: #eef5ff;
   color: var(--blue);
+}
+
+.payment-readiness,
+.gateway-note,
+.last-payment {
+  display: grid;
+  gap: 6px;
+  border-radius: 6px;
+  background: #f7f7f7;
+  padding: 12px;
+}
+
+.payment-readiness span,
+.gateway-note span,
+.last-payment span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.payment-readiness span::before {
+  content: "✓ ";
+  color: var(--green);
+  font-weight: 950;
 }
 
 .dashboard {
@@ -871,6 +900,65 @@ select {
   line-height: 1.5;
 }
 
+.payment-card small {
+  display: block;
+  margin-top: 14px;
+  color: #333333;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.payments-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.payment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: 14px;
+  align-items: center;
+  border-top: 1px solid #eeeeee;
+  padding-top: 12px;
+}
+
+.payment-row span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.payment-row mark {
+  justify-self: start;
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: var(--green);
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.payment-blueprint {
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.payment-blueprint h2 {
+  margin: 0;
+}
+
+.payment-blueprint ol {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .revenue-plan {
   margin-top: 16px;
   border-radius: 8px;
@@ -925,13 +1013,25 @@ select {
   font-size: 0.9rem;
 }
 
+.order-row mark {
+  display: inline-block;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: var(--green);
+  padding: 6px 9px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 @media (max-width: 900px) {
   .header-inner,
   .market-layout,
   .market-hero,
   .admin-grid,
   .account-layout,
-  .auth-layout {
+  .auth-layout,
+  .payments-layout {
     grid-template-columns: 1fr;
   }
 
@@ -952,6 +1052,10 @@ select {
   }
 
   .table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-row {
     grid-template-columns: 1fr;
   }
 
