@@ -1,4 +1,4 @@
-export type View = "comprar" | "cuenta" | "vender" | "admin";
+export type View = "comprar" | "ingresar" | "cuenta" | "vender" | "admin";
 
 export type UserRole = "cliente" | "comercio" | "admin";
 
