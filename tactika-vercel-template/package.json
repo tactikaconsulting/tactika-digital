@@ -1,0 +1,15 @@
+{
+  "name": "tactika-vercel-template",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/landing",
+    "apps/bazar"
+  ],
+  "scripts": {
+    "dev:landing": "npm --workspace @tactika/landing run dev",
+    "dev:bazar": "npm --workspace @tactika/bazar run dev",
+    "build:landing": "npm --workspace @tactika/landing run build",
+    "build:bazar": "npm --workspace @tactika/bazar run build"
+  }
+}
