@@ -107,3 +107,12 @@ export const businessRules = {
   sponsoredProductsMonthlyFee: 49000,
   merchantProMonthlyFee: 19900,
 };
+
+export const paymentSecurityRules = [
+  "Aceptar solo confirmacion servidor a servidor por webhook.",
+  "Validar que el monto pagado sea igual al total del pedido.",
+  "Bloquear referencias de pago duplicadas.",
+  "No liberar pedido con capturas de pantalla o comprobantes manuales.",
+  "Enviar a revision pagos con proveedor, monto o estado inconsistente.",
+  "Registrar auditoria de pedido, comercio, cliente, proveedor y hora.",
+];

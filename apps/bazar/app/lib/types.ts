@@ -16,7 +16,7 @@ export type Product = {
 
 export type CartItem = Product & { quantity: number };
 
-export type PaymentStatus = "pendiente" | "aprobado" | "rechazado";
+export type PaymentStatus = "pendiente" | "aprobado" | "rechazado" | "revision";
 
 export type PaymentAttempt = {
   id: string;
@@ -26,6 +26,8 @@ export type PaymentAttempt = {
   amount: number;
   createdAt: string;
   reference: string;
+  riskLevel: "bajo" | "medio" | "alto";
+  checks: string[];
 };
 
 export type Order = {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { money } from "./lib/format";
-import { businessRules, initialUsers, paymentProviders, products } from "./lib/seed";
+import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
 import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
 export default function BazarApp() {
@@ -60,6 +60,7 @@ export default function BazarApp() {
   const deliveryFee = deliveryMethod === "Despacho" && subtotal > 0 ? 1990 : 0;
   const serviceFee = subtotal > 0 ? 690 : 0;
   const orderTotal = subtotal + deliveryFee + serviceFee;
+  const suspiciousPayments = payments.filter((payment) => payment.status === "revision" || payment.riskLevel !== "bajo");
   const monthlyCommission = orders.reduce(
     (total, order) => total + order.commission,
     277000,
@@ -110,6 +111,13 @@ export default function BazarApp() {
       amount: orderTotal,
       createdAt: "Septiembre MVP",
       reference: `SIM-${paymentMethod.toUpperCase().replaceAll(" ", "-")}-${1043 + orders.length}`,
+      riskLevel: paymentMethod === "Transferencia" ? "medio" : "bajo",
+      checks: [
+        "Monto coincide con pedido",
+        "Referencia unica",
+        "Estado aprobado por servidor",
+        paymentMethod === "Transferencia" ? "Requiere conciliacion bancaria" : "Webhook simulado valido",
+      ],
     };
 
     setOrders((current) => [order, ...current]);
@@ -379,10 +387,11 @@ export default function BazarApp() {
                       ))}
                     </div>
                     <div className="payment-readiness">
-                      <strong>Flujo preparado</strong>
+                      <strong>Pago seguro preparado</strong>
                       <span>Crear sesion de pago</span>
                       <span>Redirigir a checkout</span>
                       <span>Confirmar por webhook</span>
+                      <span>Validar monto y referencia</span>
                     </div>
                   </div>
                 )}
@@ -398,8 +407,8 @@ export default function BazarApp() {
                   <div className="gateway-note">
                     <strong>{paymentMethod}</strong>
                     <span>
-                      En produccion este boton creara la sesion real de pago y luego volvera
-                      a Bazar con el pedido aprobado o rechazado.
+                      Bazar no aceptara capturas ni comprobantes manuales. El pedido se liberara
+                      solo si el servidor confirma el pago, el monto y la referencia.
                     </span>
                   </div>
                 )}
@@ -746,7 +755,23 @@ export default function BazarApp() {
                 <article><strong>10%</strong><span>Comision marketplace</span></article>
                 <article><strong>{money.format(businessRules.sponsoredProductsMonthlyFee)}</strong><span>Producto destacado</span></article>
                 <article><strong>{payments.length}</strong><span>Pagos simulados</span></article>
-                <article><strong>{money.format(payments.reduce((total, payment) => total + payment.amount, 0))}</strong><span>Total procesado</span></article>
+                <article><strong>{suspiciousPayments.length}</strong><span>Pagos en revision</span></article>
+              </div>
+              <div className="security-grid">
+                <div className="security-card">
+                  <h2>Reglas antifraude</h2>
+                  {paymentSecurityRules.map((rule) => (
+                    <span key={rule}>{rule}</span>
+                  ))}
+                </div>
+                <div className="security-card warning">
+                  <h2>Politica Bazar</h2>
+                  <strong>No confiar en comprobantes del usuario</strong>
+                  <p>
+                    El comercio solo prepara o entrega pedidos cuando Bazar recibe confirmacion
+                    del servidor de pago y valida monto, referencia y estado.
+                  </p>
+                </div>
               </div>
               <div className="payment-grid">
                 {paymentProviders.map((provider) => (
@@ -769,9 +794,15 @@ export default function BazarApp() {
                         <div>
                           <strong>{payment.id}</strong>
                           <span>{payment.orderId} · {payment.provider}</span>
+                          <small>{payment.reference} · Riesgo {payment.riskLevel}</small>
                         </div>
                         <mark>{payment.status}</mark>
                         <strong>{money.format(payment.amount)}</strong>
+                        <ul>
+                          {payment.checks.map((check) => (
+                            <li key={check}>{check}</li>
+                          ))}
+                        </ul>
                       </article>
                     ))
                   )}

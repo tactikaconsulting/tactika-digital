@@ -908,6 +908,52 @@ select {
   line-height: 1.45;
 }
 
+.security-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.security-card {
+  display: grid;
+  gap: 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.security-card h2,
+.security-card p {
+  margin: 0;
+}
+
+.security-card span {
+  border-radius: 6px;
+  background: #f7f7f7;
+  color: #333333;
+  padding: 10px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.security-card span::before {
+  content: "✓ ";
+  color: var(--green);
+  font-weight: 950;
+}
+
+.security-card.warning {
+  border: 1px solid #ffe08a;
+  background: #fff9df;
+}
+
+.security-card.warning p {
+  color: #665500;
+  line-height: 1.5;
+}
+
 .payments-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -930,6 +976,13 @@ select {
   color: var(--muted);
 }
 
+.payment-row small {
+  display: block;
+  margin-top: 4px;
+  color: #333333;
+  font-weight: 800;
+}
+
 .payment-row mark {
   justify-self: start;
   border-radius: 999px;
@@ -937,6 +990,16 @@ select {
   color: var(--green);
   padding: 7px 10px;
   font-weight: 900;
+}
+
+.payment-row ul {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .payment-blueprint {
@@ -1031,7 +1094,8 @@ select {
   .admin-grid,
   .account-layout,
   .auth-layout,
-  .payments-layout {
+  .payments-layout,
+  .security-grid {
     grid-template-columns: 1fr;
   }
 
