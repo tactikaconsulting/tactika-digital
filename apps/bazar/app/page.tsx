@@ -1,72 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-type View = "comprar" | "cuenta" | "vender" | "admin";
-type Product = {
-  id: number;
-  name: string;
-  store: string;
-  price: number;
-  tag: string;
-  premier: number;
-};
-type CartItem = Product & { quantity: number };
-type Order = {
-  id: string;
-  status: string;
-  total: number;
-  commission: number;
-  premier: number;
-  items: CartItem[];
-};
-
-const products: Product[] = [
-  {
-    id: 1,
-    name: "Canasta semanal hogar",
-    store: "Almacen Central",
-    price: 18990,
-    tag: "Envio gratis",
-    premier: 190,
-  },
-  {
-    id: 2,
-    name: "Pack brunch local",
-    store: "Cafe Barrio Norte",
-    price: 12990,
-    tag: "25 min",
-    premier: 130,
-  },
-  {
-    id: 3,
-    name: "Cable USB-C reforzado",
-    store: "Tecno Express",
-    price: 6990,
-    tag: "30% off",
-    premier: 70,
-  },
-  {
-    id: 4,
-    name: "Kit cuidado personal",
-    store: "Farmacia Local",
-    price: 15990,
-    tag: "Llega hoy",
-    premier: 160,
-  },
-];
-
-const money = new Intl.NumberFormat("es-CL", {
-  style: "currency",
-  currency: "CLP",
-  maximumFractionDigits: 0,
-});
+import { money } from "./lib/format";
+import { businessRules, initialUsers, paymentProviders, products } from "./lib/seed";
+import type { CartItem, Order, Product, UserAccount, UserRole, View } from "./lib/types";
 
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [query, setQuery] = useState("");
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    role: "cliente" as UserRole,
+  });
 
   const filteredProducts = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -88,7 +37,7 @@ export default function BazarApp() {
     () => cart.reduce((total, item) => total + item.premier * item.quantity, 0),
     [cart],
   );
-  const commission = Math.round(subtotal * 0.1);
+  const commission = Math.round(subtotal * businessRules.marketplaceCommissionRate);
   const monthlyCommission = orders.reduce(
     (total, order) => total + order.commission,
     277000,
@@ -129,6 +78,24 @@ export default function BazarApp() {
     setView("cuenta");
   }
 
+  function createUser() {
+    if (!newUser.name.trim() || !newUser.email.trim()) {
+      return;
+    }
+
+    setUsers((current) => [
+      {
+        id: `${newUser.role.toUpperCase()}-${1000 + current.length}`,
+        name: newUser.name.trim(),
+        email: newUser.email.trim(),
+        role: newUser.role,
+        status: newUser.role === "comercio" ? "Pendiente KYC" : "Activo",
+      },
+      ...current,
+    ]);
+    setNewUser({ name: "", email: "", role: "cliente" });
+  }
+
   return (
     <main>
       <header className="market-header">
@@ -143,8 +110,10 @@ export default function BazarApp() {
           />
           <nav>
             <button type="button" onClick={() => setView("comprar")}>Comprar</button>
+            <button type="button" onClick={() => setView("usuarios")}>Usuarios</button>
             <button type="button" onClick={() => setView("cuenta")}>Mi cuenta</button>
             <button type="button" onClick={() => setView("vender")}>Vender</button>
+            <button type="button" onClick={() => setView("pagos")}>Pagos</button>
             <button type="button" onClick={() => setView("admin")}>Admin</button>
           </nav>
         </div>
@@ -215,6 +184,57 @@ export default function BazarApp() {
         </section>
       )}
 
+      {view === "usuarios" && (
+        <section className="dashboard">
+          <div className="section-title">
+            <p>Usuarios y roles</p>
+            <h1>Crear usuarios de Bazar</h1>
+            <span>
+              Modulo base para registrar clientes, comercios y administradores.
+              Luego se conecta con autenticacion real y permisos.
+            </span>
+          </div>
+
+          <div className="admin-grid">
+            <div className="form-panel">
+              <h2>Nuevo usuario</h2>
+              <input
+                value={newUser.name}
+                onChange={(event) =>
+                  setNewUser((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="Nombre o comercio"
+              />
+              <input
+                value={newUser.email}
+                onChange={(event) =>
+                  setNewUser((current) => ({ ...current, email: event.target.value }))
+                }
+                placeholder="Correo"
+              />
+              <select
+                value={newUser.role}
+                onChange={(event) =>
+                  setNewUser((current) => ({
+                    ...current,
+                    role: event.target.value as UserRole,
+                  }))
+                }
+              >
+                <option value="cliente">Cliente</option>
+                <option value="comercio">Comercio</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button type="button" onClick={createUser}>
+                Crear usuario
+              </button>
+            </div>
+
+            <UserTable users={users} />
+          </div>
+        </section>
+      )}
+
       {view === "cuenta" && (
         <Dashboard
           title="Mi cuenta"
@@ -243,6 +263,34 @@ export default function BazarApp() {
         />
       )}
 
+      {view === "pagos" && (
+        <section className="dashboard">
+          <div className="section-title">
+            <p>Pagos y monetizacion</p>
+            <h1>Preparar cobros, comisiones y publicidad</h1>
+            <span>
+              Este modulo deja claro como Bazar gana: comision por venta,
+              productos patrocinados, planes Pro y fee de despacho.
+            </span>
+          </div>
+          <div className="cards">
+            <article><strong>10%</strong><span>Comision marketplace</span></article>
+            <article><strong>{money.format(businessRules.sponsoredProductsMonthlyFee)}</strong><span>Producto destacado</span></article>
+            <article><strong>{money.format(businessRules.merchantProMonthlyFee)}</strong><span>Plan comercio Pro</span></article>
+            <article><strong>Por definir</strong><span>Fee despacho</span></article>
+          </div>
+          <div className="payment-grid">
+            {paymentProviders.map((provider) => (
+              <article className="payment-card" key={provider.name}>
+                <strong>{provider.name}</strong>
+                <span>{provider.status}</span>
+                <p>{provider.use}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {view === "admin" && (
         <section className="dashboard">
           <div className="section-title">
@@ -259,6 +307,7 @@ export default function BazarApp() {
             <article><strong>126</strong><span>Comercios activos</span></article>
             <article><strong>{3 + orders.length}</strong><span>Pedidos por revisar</span></article>
           </div>
+          <UserTable users={users} />
           <div className="revenue-plan">
             <h2>Fuentes de ingreso</h2>
             <p>Comision por venta, tiendas destacadas, productos patrocinados, planes Pro para comercios y fee de despacho.</p>
@@ -267,6 +316,24 @@ export default function BazarApp() {
         </section>
       )}
     </main>
+  );
+}
+
+function UserTable({ users }: { users: UserAccount[] }) {
+  return (
+    <div className="table-panel">
+      <h2>Usuarios registrados</h2>
+      {users.map((user) => (
+        <article className="table-row" key={user.id}>
+          <div>
+            <strong>{user.name}</strong>
+            <span>{user.email}</span>
+          </div>
+          <span>{user.role}</span>
+          <mark>{user.status}</mark>
+        </article>
+      ))}
+    </div>
   );
 }
 

@@ -20,11 +20,13 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
-button {
+button,
+select {
   cursor: pointer;
 }
 
@@ -72,6 +74,13 @@ button {
   font-weight: 800;
 }
 
+.admin-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
 .market-layout {
   display: grid;
   width: min(1200px, calc(100% - 32px));
@@ -84,10 +93,65 @@ button {
 .panel,
 .hero,
 .product,
+.form-panel,
+.table-panel,
+.payment-card,
 .cards article {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.form-panel,
+.table-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+}
+
+.form-panel h2,
+.table-panel h2 {
+  margin: 0;
+}
+
+.form-panel input,
+.form-panel select {
+  min-height: 42px;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  padding: 0 12px;
+}
+
+.form-panel button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 130px;
+  gap: 14px;
+  align-items: center;
+  border-top: 1px solid #eeeeee;
+  padding-top: 12px;
+}
+
+.table-row span {
+  color: var(--muted);
+}
+
+.table-row mark {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #e9f7ef;
+  color: var(--green);
+  font-weight: 850;
 }
 
 .panel {
@@ -281,6 +345,35 @@ button {
   color: var(--muted);
 }
 
+.payment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.payment-card {
+  min-height: 190px;
+  padding: 18px;
+}
+
+.payment-card strong,
+.payment-card span {
+  display: block;
+}
+
+.payment-card span {
+  margin-top: 10px;
+  color: var(--blue);
+  font-weight: 850;
+}
+
+.payment-card p {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .revenue-plan {
   margin-top: 16px;
   border-radius: 8px;
@@ -338,12 +431,14 @@ button {
 @media (max-width: 900px) {
   .header-inner,
   .market-layout,
-  .product {
+  .product,
+  .admin-grid {
     grid-template-columns: 1fr;
   }
 
   .header-inner nav,
-  .cards {
+  .cards,
+  .payment-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -363,10 +458,15 @@ button {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .table-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
-  .cards {
+  .cards,
+  .payment-grid {
     grid-template-columns: 1fr;
   }
 }

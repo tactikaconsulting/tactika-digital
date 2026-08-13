@@ -1,0 +1,37 @@
+export type View = "comprar" | "usuarios" | "cuenta" | "vender" | "pagos" | "admin";
+
+export type UserRole = "cliente" | "comercio" | "admin";
+
+export type Product = {
+  id: number;
+  name: string;
+  store: string;
+  price: number;
+  tag: string;
+  premier: number;
+};
+
+export type CartItem = Product & { quantity: number };
+
+export type Order = {
+  id: string;
+  status: string;
+  total: number;
+  commission: number;
+  premier: number;
+  items: CartItem[];
+};
+
+export type UserAccount = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: string;
+};
+
+export type PaymentProvider = {
+  name: string;
+  status: string;
+  use: string;
+};
