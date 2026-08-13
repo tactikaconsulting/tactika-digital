@@ -1,31 +1,40 @@
-# Tactika + Bazar Vercel Template
+# Bazar App
 
-Plantilla para trabajar en VS Code con dos proyectos separados en un mismo
-repositorio:
+Repositorio para construir Bazar como aplicacion marketplace.
 
-- `apps/landing`: landing corporativa de Tactika Consulting.
-- `apps/bazar`: aplicacion marketplace Bazar.
+## Decision actual
 
-## Flujo recomendado
+- La landing de asesoria existente se mantiene aparte y no se toca.
+- Este repositorio se enfoca en la app Bazar.
+- El dominio recomendado para produccion es `bazar.tactikaconsulting.com`.
 
-1. Abrir esta carpeta en VS Code.
-2. Subirla a GitHub.
-3. Importar dos proyectos en Vercel desde el mismo repositorio:
-   - Proyecto 1: root directory `apps/landing`.
-   - Proyecto 2: root directory `apps/bazar`.
-4. Conectar dominios:
-   - `tactikaconsulting.com` para la landing.
-   - `bazar.tactikaconsulting.com` para la app.
+## Proyecto activo
 
-## Comandos locales
+```text
+apps/bazar
+```
+
+## Vercel
+
+Configura el proyecto de Vercel con:
+
+```text
+Root Directory: apps/bazar
+Domain: bazar.tactikaconsulting.com
+```
+
+## Desarrollo local
 
 ```bash
 npm install
-npm run dev:landing
 npm run dev:bazar
 ```
 
-## Produccion
+## Proximas prioridades
 
-Cada app tiene su propio `package.json`, por lo que Vercel puede desplegarlas
-como proyectos independientes aunque vivan en el mismo repositorio.
+1. Carrito y pedido funcional.
+2. Panel comercio para productos, stock y pedidos.
+3. Admin para usuarios, comercios, comisiones y publicidad.
+4. Login y roles.
+5. Base de datos.
+6. Pagos, comisiones y Premier.

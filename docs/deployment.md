@@ -1,24 +1,24 @@
-# Despliegue en Vercel
+# Despliegue de Bazar
 
-## Landing
+## App principal
 
-- Framework: Next.js
-- Root directory: `apps/landing`
-- Dominio recomendado: `tactikaconsulting.com`
-
-## App Bazar
-
-- Framework: Next.js
+- Proyecto Vercel: `tactika-bazar`
 - Root directory: `apps/bazar`
-- Dominio recomendado: `bazar.tactikaconsulting.com`
+- Dominio: `bazar.tactikaconsulting.com`
 
-## GitHub
+## Landing de asesoria
 
-Sube este repositorio completo a GitHub. En Vercel crea dos proyectos desde el
-mismo repositorio, cambiando solo el root directory.
+La landing de asesoria actual vive aparte. No usar este repositorio para
+reemplazar `www.tactikaconsulting.com`.
 
 ## DNS
 
-Vercel entregara los registros DNS exactos cuando agregues cada dominio. Si el
-dominio esta en HostGator, esos registros se agregan en el panel DNS de
-HostGator.
+En HostGator debe existir el subdominio:
+
+```text
+Tipo: CNAME
+Nombre: bazar
+Valor: cname.vercel-dns.com
+```
+
+Luego se valida en Vercel desde `Settings > Domains`.
