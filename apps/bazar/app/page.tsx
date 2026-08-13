@@ -111,9 +111,8 @@ export default function BazarApp() {
           />
           <nav>
             <button type="button" onClick={() => setView("comprar")}>Comprar</button>
-            <button type="button" onClick={() => setView("cuenta")}>Mi cuenta</button>
-            <button type="button" onClick={() => setView("vender")}>Soy comercio</button>
-            <button type="button" onClick={() => setView("admin")}>Administrar</button>
+            <button type="button" onClick={() => setView("cuenta")}>Cliente</button>
+            <button type="button" onClick={() => setView("vender")}>Comercio</button>
           </nav>
         </div>
       </header>
@@ -184,23 +183,58 @@ export default function BazarApp() {
       )}
 
       {view === "cuenta" && (
-        <Dashboard
-          title="Mi cuenta"
-          subtitle="Perfil, direcciones, pedidos y puntos Premier del cliente."
-          metrics={[
-            [String(1840 + orders.reduce((total, order) => total + order.premier, 0)), "Puntos Premier"],
-            [String(12 + orders.length), "Compras"],
-            ["3", "Direcciones"],
-            ["2", "Medios de pago"],
-          ]}
-          orders={orders}
-        />
+        <section className="dashboard">
+          <div className="section-title">
+            <p>Cliente</p>
+            <h1>Mi cuenta</h1>
+            <span>
+              Perfil del comprador, pedidos, direcciones, medios de pago y puntos Premier.
+              La administracion queda como acceso interno, no como opcion publica.
+            </span>
+          </div>
+
+          <div className="account-layout">
+            <section className="account-main">
+              <div className="cards">
+                {[
+                  [String(1840 + orders.reduce((total, order) => total + order.premier, 0)), "Puntos Premier"],
+                  [String(12 + orders.length), "Compras"],
+                  ["3", "Direcciones"],
+                  ["2", "Medios de pago"],
+                ].map(([value, label]) => (
+                  <article key={label}>
+                    <strong>{value}</strong>
+                    <span>{label}</span>
+                  </article>
+                ))}
+              </div>
+              <OrderList orders={orders} />
+            </section>
+
+            <aside className="account-panel">
+              <h2>Accesos de mi cuenta</h2>
+              <button type="button" className="active">
+                Perfil cliente
+              </button>
+              <button type="button" onClick={() => setView("vender")}>
+                Entrar como comercio
+              </button>
+              <button type="button" onClick={() => setView("admin")}>
+                Administrar Bazar
+              </button>
+              <p>
+                En una version real este ultimo acceso se mostraria solo a usuarios con rol admin.
+              </p>
+            </aside>
+          </div>
+        </section>
       )}
 
       {view === "vender" && (
         <Dashboard
-          title="Centro de vendedores"
-          subtitle="Productos, stock, ventas y pedidos del comercio."
+          label="Comercio"
+          title="Panel comercio"
+          subtitle="Espacio separado para que cada negocio publique productos, controle stock, revise ventas y gestione pedidos."
           metrics={[
             ["$2.770.000", "Ventas mes"],
             [String(177 + orders.length), "Pedidos"],
@@ -220,6 +254,9 @@ export default function BazarApp() {
               Centro interno para usuarios, comercios, pedidos, pagos,
               comisiones, publicidad y reglas Premier.
             </span>
+            <button className="back-link" type="button" onClick={() => setView("cuenta")}>
+              Volver a mi cuenta
+            </button>
           </div>
 
           <div className="admin-tabs" role="tablist" aria-label="Modulos admin">
@@ -346,11 +383,13 @@ function UserTable({ users }: { users: UserAccount[] }) {
 }
 
 function Dashboard({
+  label = "Bazar",
   title,
   subtitle,
   metrics,
   orders,
 }: {
+  label?: string;
   title: string;
   subtitle: string;
   metrics: [string, string][];
@@ -359,7 +398,7 @@ function Dashboard({
   return (
     <section className="dashboard">
       <div className="section-title">
-        <p>Bazar</p>
+        <p>{label}</p>
         <h1>{title}</h1>
         <span>{subtitle}</span>
       </div>

@@ -345,6 +345,74 @@ select {
   font-size: 1.05rem;
 }
 
+.back-link {
+  min-height: 40px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: var(--blue);
+  font-weight: 900;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.account-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.account-main .cards {
+  margin-top: 0;
+}
+
+.account-panel {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.account-panel h2,
+.account-panel p {
+  margin: 0;
+}
+
+.account-panel h2 {
+  font-size: 1rem;
+}
+
+.account-panel button {
+  min-height: 42px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #333333;
+  font-weight: 900;
+  text-align: left;
+  padding: 0 12px;
+}
+
+.account-panel button.active,
+.account-panel button:hover {
+  border-color: var(--blue);
+  background: #eef5ff;
+  color: var(--blue);
+}
+
+.account-panel p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -455,7 +523,8 @@ select {
   .header-inner,
   .market-layout,
   .product,
-  .admin-grid {
+  .admin-grid,
+  .account-layout {
     grid-template-columns: 1fr;
   }
 
@@ -484,6 +553,10 @@ select {
 
   .table-row {
     grid-template-columns: 1fr;
+  }
+
+  .account-panel {
+    position: static;
   }
 }
 
