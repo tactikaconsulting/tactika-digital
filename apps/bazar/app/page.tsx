@@ -12,6 +12,14 @@ type Product = {
   premier: number;
 };
 type CartItem = Product & { quantity: number };
+type Order = {
+  id: string;
+  status: string;
+  total: number;
+  commission: number;
+  premier: number;
+  items: CartItem[];
+};
 
 const products: Product[] = [
   {
@@ -57,6 +65,7 @@ const money = new Intl.NumberFormat("es-CL", {
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [query, setQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
@@ -80,6 +89,10 @@ export default function BazarApp() {
     [cart],
   );
   const commission = Math.round(subtotal * 0.1);
+  const monthlyCommission = orders.reduce(
+    (total, order) => total + order.commission,
+    277000,
+  );
 
   function addToCart(product: Product) {
     setCart((current) => {
@@ -95,6 +108,25 @@ export default function BazarApp() {
 
       return [...current, { ...product, quantity: 1 }];
     });
+  }
+
+  function confirmOrder() {
+    if (cart.length === 0) {
+      return;
+    }
+
+    const order: Order = {
+      id: `BZ-${1043 + orders.length}`,
+      status: "Recibido",
+      total: subtotal,
+      commission,
+      premier,
+      items: cart,
+    };
+
+    setOrders((current) => [order, ...current]);
+    setCart([]);
+    setView("cuenta");
   }
 
   return (
@@ -176,7 +208,9 @@ export default function BazarApp() {
               <span>Premier</span>
               <strong>{premier} pts</strong>
             </div>
-            <button type="button">Continuar compra</button>
+            <button type="button" onClick={confirmOrder} disabled={cart.length === 0}>
+              Confirmar pedido
+            </button>
           </aside>
         </section>
       )}
@@ -186,11 +220,12 @@ export default function BazarApp() {
           title="Mi cuenta"
           subtitle="Perfil, direcciones, pedidos y puntos Premier del cliente."
           metrics={[
-            ["1.840", "Puntos Premier"],
-            ["12", "Compras"],
+            [String(1840 + orders.reduce((total, order) => total + order.premier, 0)), "Puntos Premier"],
+            [String(12 + orders.length), "Compras"],
             ["3", "Direcciones"],
             ["2", "Medios de pago"],
           ]}
+          orders={orders}
         />
       )}
 
@@ -200,10 +235,11 @@ export default function BazarApp() {
           subtitle="Productos, stock, ventas y pedidos del comercio."
           metrics={[
             ["$2.770.000", "Ventas mes"],
-            ["177", "Pedidos"],
+            [String(177 + orders.length), "Pedidos"],
             ["24", "Productos activos"],
-            ["$277.000", "Comision Bazar"],
+            [money.format(monthlyCommission), "Comision Bazar"],
           ]}
+          orders={orders}
         />
       )}
 
@@ -218,15 +254,16 @@ export default function BazarApp() {
             </span>
           </div>
           <div className="cards">
-            <article><strong>{money.format(commission)}</strong><span>Comision simulada 10%</span></article>
+            <article><strong>{money.format(monthlyCommission)}</strong><span>Comision acumulada</span></article>
             <article><strong>$480.000</strong><span>Publicidad destacada</span></article>
             <article><strong>126</strong><span>Comercios activos</span></article>
-            <article><strong>3</strong><span>Revisiones pendientes</span></article>
+            <article><strong>{3 + orders.length}</strong><span>Pedidos por revisar</span></article>
           </div>
           <div className="revenue-plan">
             <h2>Fuentes de ingreso</h2>
             <p>Comision por venta, tiendas destacadas, productos patrocinados, planes Pro para comercios y fee de despacho.</p>
           </div>
+          <OrderList orders={orders} />
         </section>
       )}
     </main>
@@ -237,10 +274,12 @@ function Dashboard({
   title,
   subtitle,
   metrics,
+  orders,
 }: {
   title: string;
   subtitle: string;
   metrics: [string, string][];
+  orders?: Order[];
 }) {
   return (
     <section className="dashboard">
@@ -257,6 +296,36 @@ function Dashboard({
           </article>
         ))}
       </div>
+      <OrderList orders={orders ?? []} />
     </section>
+  );
+}
+
+function OrderList({ orders }: { orders: Order[] }) {
+  if (orders.length === 0) {
+    return (
+      <div className="order-panel">
+        <h2>Pedidos recientes</h2>
+        <p>Aun no hay pedidos simulados. Agrega productos y confirma una compra.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="order-panel">
+      <h2>Pedidos recientes</h2>
+      {orders.map((order) => (
+        <article className="order-row" key={order.id}>
+          <div>
+            <strong>{order.id}</strong>
+            <span>{order.items.length} productos · {order.status}</span>
+          </div>
+          <div>
+            <strong>{money.format(order.total)}</strong>
+            <span>Comision {money.format(order.commission)}</span>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
