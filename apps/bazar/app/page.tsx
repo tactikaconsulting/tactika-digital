@@ -7,6 +7,7 @@ import type { CartItem, Order, Product, UserAccount, UserRole, View } from "./li
 
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
+  const [adminSection, setAdminSection] = useState<"resumen" | "usuarios" | "pagos">("resumen");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
@@ -110,11 +111,9 @@ export default function BazarApp() {
           />
           <nav>
             <button type="button" onClick={() => setView("comprar")}>Comprar</button>
-            <button type="button" onClick={() => setView("usuarios")}>Usuarios</button>
             <button type="button" onClick={() => setView("cuenta")}>Mi cuenta</button>
-            <button type="button" onClick={() => setView("vender")}>Vender</button>
-            <button type="button" onClick={() => setView("pagos")}>Pagos</button>
-            <button type="button" onClick={() => setView("admin")}>Admin</button>
+            <button type="button" onClick={() => setView("vender")}>Soy comercio</button>
+            <button type="button" onClick={() => setView("admin")}>Administrar</button>
           </nav>
         </div>
       </header>
@@ -184,57 +183,6 @@ export default function BazarApp() {
         </section>
       )}
 
-      {view === "usuarios" && (
-        <section className="dashboard">
-          <div className="section-title">
-            <p>Usuarios y roles</p>
-            <h1>Crear usuarios de Bazar</h1>
-            <span>
-              Modulo base para registrar clientes, comercios y administradores.
-              Luego se conecta con autenticacion real y permisos.
-            </span>
-          </div>
-
-          <div className="admin-grid">
-            <div className="form-panel">
-              <h2>Nuevo usuario</h2>
-              <input
-                value={newUser.name}
-                onChange={(event) =>
-                  setNewUser((current) => ({ ...current, name: event.target.value }))
-                }
-                placeholder="Nombre o comercio"
-              />
-              <input
-                value={newUser.email}
-                onChange={(event) =>
-                  setNewUser((current) => ({ ...current, email: event.target.value }))
-                }
-                placeholder="Correo"
-              />
-              <select
-                value={newUser.role}
-                onChange={(event) =>
-                  setNewUser((current) => ({
-                    ...current,
-                    role: event.target.value as UserRole,
-                  }))
-                }
-              >
-                <option value="cliente">Cliente</option>
-                <option value="comercio">Comercio</option>
-                <option value="admin">Admin</option>
-              </select>
-              <button type="button" onClick={createUser}>
-                Crear usuario
-              </button>
-            </div>
-
-            <UserTable users={users} />
-          </div>
-        </section>
-      )}
-
       {view === "cuenta" && (
         <Dashboard
           title="Mi cuenta"
@@ -263,56 +211,116 @@ export default function BazarApp() {
         />
       )}
 
-      {view === "pagos" && (
-        <section className="dashboard">
-          <div className="section-title">
-            <p>Pagos y monetizacion</p>
-            <h1>Preparar cobros, comisiones y publicidad</h1>
-            <span>
-              Este modulo deja claro como Bazar gana: comision por venta,
-              productos patrocinados, planes Pro y fee de despacho.
-            </span>
-          </div>
-          <div className="cards">
-            <article><strong>10%</strong><span>Comision marketplace</span></article>
-            <article><strong>{money.format(businessRules.sponsoredProductsMonthlyFee)}</strong><span>Producto destacado</span></article>
-            <article><strong>{money.format(businessRules.merchantProMonthlyFee)}</strong><span>Plan comercio Pro</span></article>
-            <article><strong>Por definir</strong><span>Fee despacho</span></article>
-          </div>
-          <div className="payment-grid">
-            {paymentProviders.map((provider) => (
-              <article className="payment-card" key={provider.name}>
-                <strong>{provider.name}</strong>
-                <span>{provider.status}</span>
-                <p>{provider.use}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
       {view === "admin" && (
         <section className="dashboard">
           <div className="section-title">
-            <p>Modelo de ingresos</p>
+            <p>Backoffice</p>
             <h1>Admin Bazar</h1>
             <span>
-              Control de usuarios, comercios, comisiones, publicidad interna y
-              reglas Premier.
+              Centro interno para usuarios, comercios, pedidos, pagos,
+              comisiones, publicidad y reglas Premier.
             </span>
           </div>
-          <div className="cards">
-            <article><strong>{money.format(monthlyCommission)}</strong><span>Comision acumulada</span></article>
-            <article><strong>$480.000</strong><span>Publicidad destacada</span></article>
-            <article><strong>126</strong><span>Comercios activos</span></article>
-            <article><strong>{3 + orders.length}</strong><span>Pedidos por revisar</span></article>
+
+          <div className="admin-tabs" role="tablist" aria-label="Modulos admin">
+            <button
+              type="button"
+              className={adminSection === "resumen" ? "active" : ""}
+              onClick={() => setAdminSection("resumen")}
+            >
+              Resumen
+            </button>
+            <button
+              type="button"
+              className={adminSection === "usuarios" ? "active" : ""}
+              onClick={() => setAdminSection("usuarios")}
+            >
+              Usuarios y roles
+            </button>
+            <button
+              type="button"
+              className={adminSection === "pagos" ? "active" : ""}
+              onClick={() => setAdminSection("pagos")}
+            >
+              Pagos e ingresos
+            </button>
           </div>
-          <UserTable users={users} />
-          <div className="revenue-plan">
-            <h2>Fuentes de ingreso</h2>
-            <p>Comision por venta, tiendas destacadas, productos patrocinados, planes Pro para comercios y fee de despacho.</p>
-          </div>
-          <OrderList orders={orders} />
+
+          {adminSection === "resumen" && (
+            <>
+              <div className="cards">
+                <article><strong>{money.format(monthlyCommission)}</strong><span>Comision acumulada</span></article>
+                <article><strong>$480.000</strong><span>Publicidad destacada</span></article>
+                <article><strong>126</strong><span>Comercios activos</span></article>
+                <article><strong>{3 + orders.length}</strong><span>Pedidos por revisar</span></article>
+              </div>
+              <OrderList orders={orders} />
+            </>
+          )}
+
+          {adminSection === "usuarios" && (
+            <div className="admin-grid">
+              <div className="form-panel">
+                <h2>Crear usuario</h2>
+                <input
+                  value={newUser.name}
+                  onChange={(event) =>
+                    setNewUser((current) => ({ ...current, name: event.target.value }))
+                  }
+                  placeholder="Nombre o comercio"
+                />
+                <input
+                  value={newUser.email}
+                  onChange={(event) =>
+                    setNewUser((current) => ({ ...current, email: event.target.value }))
+                  }
+                  placeholder="Correo"
+                />
+                <select
+                  value={newUser.role}
+                  onChange={(event) =>
+                    setNewUser((current) => ({
+                      ...current,
+                      role: event.target.value as UserRole,
+                    }))
+                  }
+                >
+                  <option value="cliente">Cliente</option>
+                  <option value="comercio">Comercio</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button type="button" onClick={createUser}>
+                  Crear usuario
+                </button>
+              </div>
+
+              <UserTable users={users} />
+            </div>
+          )}
+
+          {adminSection === "pagos" && (
+            <>
+              <div className="cards">
+                <article><strong>10%</strong><span>Comision marketplace</span></article>
+                <article><strong>{money.format(businessRules.sponsoredProductsMonthlyFee)}</strong><span>Producto destacado</span></article>
+                <article><strong>{money.format(businessRules.merchantProMonthlyFee)}</strong><span>Plan comercio Pro</span></article>
+                <article><strong>Por definir</strong><span>Fee despacho</span></article>
+              </div>
+              <div className="payment-grid">
+                {paymentProviders.map((provider) => (
+                  <article className="payment-card" key={provider.name}>
+                    <strong>{provider.name}</strong>
+                    <span>{provider.status}</span>
+                    <p>{provider.use}</p>
+                  </article>
+                ))}
+              </div>
+              <div className="revenue-plan">
+                <h2>Fuentes de ingreso</h2>
+                <p>Comision por venta, tiendas destacadas, productos patrocinados, planes Pro para comercios y fee de despacho.</p>
+              </div>
+            </>
+          )}
         </section>
       )}
     </main>
