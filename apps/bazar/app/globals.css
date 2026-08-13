@@ -422,13 +422,15 @@ select {
   line-height: 1.45;
 }
 
-.login-grid {
+.auth-layout {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 16px;
   margin-top: 24px;
 }
 
+.auth-card,
+.demo-users,
 .login-card,
 .empty-access {
   display: grid;
@@ -437,6 +439,94 @@ select {
   background: var(--surface);
   padding: 18px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.auth-card {
+  align-content: start;
+  gap: 18px;
+  padding: 22px;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  border-radius: 6px;
+  background: #f2f2f2;
+  padding: 4px;
+}
+
+.auth-tabs button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.auth-tabs button.active {
+  background: #ffffff;
+  color: var(--blue);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: #333333;
+  font-weight: 850;
+}
+
+.auth-form input,
+.auth-form select {
+  min-height: 44px;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.auth-form button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 950;
+}
+
+.auth-message {
+  margin: 0;
+  border-radius: 6px;
+  background: #fff7d6;
+  color: #665500;
+  padding: 12px;
+  font-weight: 800;
+}
+
+.demo-users {
+  align-content: start;
+}
+
+.demo-users h2,
+.demo-users p {
+  margin: 0;
+}
+
+.demo-users h2 {
+  font-size: 1rem;
+}
+
+.demo-users > p {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .login-card span {
@@ -587,14 +677,14 @@ select {
   .market-layout,
   .product,
   .admin-grid,
-  .account-layout {
+  .account-layout,
+  .auth-layout {
     grid-template-columns: 1fr;
   }
 
   .header-inner nav,
   .cards,
-  .payment-grid,
-  .login-grid {
+  .payment-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -626,8 +716,7 @@ select {
 
 @media (max-width: 640px) {
   .cards,
-  .payment-grid,
-  .login-grid {
+  .payment-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -12,7 +12,15 @@ export default function BazarApp() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMessage, setAuthMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [accountDraft, setAccountDraft] = useState({
+    name: "",
+    email: "",
+    role: "cliente" as Exclude<UserRole, "admin">,
+  });
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -83,6 +91,7 @@ export default function BazarApp() {
 
   function signInAs(user: UserAccount) {
     setActiveUser(user);
+    setAuthMessage("");
 
     if (user.role === "comercio") {
       setView("vender");
@@ -95,6 +104,48 @@ export default function BazarApp() {
     }
 
     setView("cuenta");
+  }
+
+  function submitLogin() {
+    const email = loginEmail.trim().toLowerCase();
+    const user = users.find((account) => account.email.toLowerCase() === email);
+
+    if (!user) {
+      setAuthMessage("No encontramos ese correo. Puedes crear una cuenta nueva.");
+      return;
+    }
+
+    signInAs(user);
+  }
+
+  function submitRegistration() {
+    if (!accountDraft.name.trim() || !accountDraft.email.trim()) {
+      setAuthMessage("Completa nombre y correo para crear la cuenta.");
+      return;
+    }
+
+    const existingUser = users.find(
+      (user) => user.email.toLowerCase() === accountDraft.email.trim().toLowerCase(),
+    );
+
+    if (existingUser) {
+      setAuthMessage("Ese correo ya existe. Puedes iniciar sesion con esa cuenta.");
+      setAuthMode("login");
+      setLoginEmail(existingUser.email);
+      return;
+    }
+
+    const createdUser: UserAccount = {
+      id: `${accountDraft.role.toUpperCase()}-${1000 + users.length}`,
+      name: accountDraft.name.trim(),
+      email: accountDraft.email.trim(),
+      role: accountDraft.role,
+      status: accountDraft.role === "comercio" ? "Pendiente KYC" : "Activo",
+    };
+
+    setUsers((current) => [createdUser, ...current]);
+    setAccountDraft({ name: "", email: "", role: "cliente" });
+    signInAs(createdUser);
   }
 
   function createUser() {
@@ -208,25 +259,119 @@ export default function BazarApp() {
       {view === "ingresar" && (
         <section className="dashboard">
           <div className="section-title">
-            <p>Ingreso MVP</p>
-            <h1>Elige como entrar a Bazar</h1>
+            <p>Cuenta Bazar</p>
+            <h1>Ingresa o crea tu cuenta</h1>
             <span>
-              En esta primera version simulamos el ingreso. Mas adelante esto se cambia por
-              correo, clave, verificacion y permisos reales.
+              El MVP ya deja clara la base del sistema: clientes compran, comercios venden
+              y administradores gestionan la plataforma.
             </span>
           </div>
 
-          <div className="login-grid">
-            {users.slice(0, 3).map((user) => (
-              <article className="login-card" key={user.id}>
-                <span>{user.role}</span>
-                <strong>{user.name}</strong>
-                <p>{user.email}</p>
-                <button type="button" onClick={() => signInAs(user)}>
-                  Entrar
+          <div className="auth-layout">
+            <section className="auth-card">
+              <div className="auth-tabs" role="tablist" aria-label="Ingreso Bazar">
+                <button
+                  type="button"
+                  className={authMode === "login" ? "active" : ""}
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthMessage("");
+                  }}
+                >
+                  Iniciar sesion
                 </button>
-              </article>
-            ))}
+                <button
+                  type="button"
+                  className={authMode === "register" ? "active" : ""}
+                  onClick={() => {
+                    setAuthMode("register");
+                    setAuthMessage("");
+                  }}
+                >
+                  Crear cuenta
+                </button>
+              </div>
+
+              {authMode === "login" ? (
+                <div className="auth-form">
+                  <label>
+                    Correo
+                    <input
+                      value={loginEmail}
+                      onChange={(event) => setLoginEmail(event.target.value)}
+                      placeholder="tu@correo.cl"
+                      type="email"
+                    />
+                  </label>
+                  <label>
+                    Clave
+                    <input placeholder="Clave simulada para MVP" type="password" />
+                  </label>
+                  <button type="button" onClick={submitLogin}>
+                    Entrar a mi cuenta
+                  </button>
+                </div>
+              ) : (
+                <div className="auth-form">
+                  <label>
+                    Nombre
+                    <input
+                      value={accountDraft.name}
+                      onChange={(event) =>
+                        setAccountDraft((current) => ({ ...current, name: event.target.value }))
+                      }
+                      placeholder="Nombre o comercio"
+                    />
+                  </label>
+                  <label>
+                    Correo
+                    <input
+                      value={accountDraft.email}
+                      onChange={(event) =>
+                        setAccountDraft((current) => ({ ...current, email: event.target.value }))
+                      }
+                      placeholder="tu@correo.cl"
+                      type="email"
+                    />
+                  </label>
+                  <label>
+                    Tipo de cuenta
+                    <select
+                      value={accountDraft.role}
+                      onChange={(event) =>
+                        setAccountDraft((current) => ({
+                          ...current,
+                          role: event.target.value as Exclude<UserRole, "admin">,
+                        }))
+                      }
+                    >
+                      <option value="cliente">Cliente comprador</option>
+                      <option value="comercio">Comercio vendedor</option>
+                    </select>
+                  </label>
+                  <button type="button" onClick={submitRegistration}>
+                    Crear y entrar
+                  </button>
+                </div>
+              )}
+
+              {authMessage && <p className="auth-message">{authMessage}</p>}
+            </section>
+
+            <aside className="demo-users">
+              <h2>Usuarios de prueba</h2>
+              <p>Sirven para revisar los roles mientras conectamos autenticacion real.</p>
+              {users.slice(0, 3).map((user) => (
+                <article className="login-card" key={user.id}>
+                  <span>{user.role}</span>
+                  <strong>{user.name}</strong>
+                  <p>{user.email}</p>
+                  <button type="button" onClick={() => signInAs(user)}>
+                    Entrar como {user.role}
+                  </button>
+                </article>
+              ))}
+            </aside>
           </div>
         </section>
       )}
