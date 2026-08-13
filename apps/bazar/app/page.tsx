@@ -8,6 +8,7 @@ import type { CartItem, Order, Product, UserAccount, UserRole, View } from "./li
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
   const [adminSection, setAdminSection] = useState<"resumen" | "usuarios" | "pagos">("resumen");
+  const [checkoutStep, setCheckoutStep] = useState<"carrito" | "entrega" | "pago">("carrito");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
@@ -15,6 +16,10 @@ export default function BazarApp() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authMessage, setAuthMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [deliveryMethod, setDeliveryMethod] = useState<"Despacho" | "Retiro">("Despacho");
+  const [paymentMethod, setPaymentMethod] = useState("Webpay");
+  const [shippingAddress, setShippingAddress] = useState("Av. Principal 123, Santiago");
   const [loginEmail, setLoginEmail] = useState("");
   const [accountDraft, setAccountDraft] = useState({
     name: "",
@@ -29,15 +34,18 @@ export default function BazarApp() {
 
   const filteredProducts = useMemo(() => {
     const value = query.trim().toLowerCase();
+    const categoryFiltered = selectedCategory === "Todos"
+      ? products
+      : products.filter((product) => product.category === selectedCategory);
 
     if (!value) {
-      return products;
+      return categoryFiltered;
     }
 
-    return products.filter((product) =>
-      `${product.name} ${product.store}`.toLowerCase().includes(value),
+    return categoryFiltered.filter((product) =>
+      `${product.name} ${product.store} ${product.category}`.toLowerCase().includes(value),
     );
-  }, [query]);
+  }, [query, selectedCategory]);
 
   const subtotal = useMemo(
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
@@ -48,10 +56,14 @@ export default function BazarApp() {
     [cart],
   );
   const commission = Math.round(subtotal * businessRules.marketplaceCommissionRate);
+  const deliveryFee = deliveryMethod === "Despacho" && subtotal > 0 ? 1990 : 0;
+  const serviceFee = subtotal > 0 ? 690 : 0;
+  const orderTotal = subtotal + deliveryFee + serviceFee;
   const monthlyCommission = orders.reduce(
     (total, order) => total + order.commission,
     277000,
   );
+  const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
 
   function addToCart(product: Product) {
     setCart((current) => {
@@ -67,6 +79,11 @@ export default function BazarApp() {
 
       return [...current, { ...product, quantity: 1 }];
     });
+    setCheckoutStep("carrito");
+  }
+
+  function removeFromCart(productId: number) {
+    setCart((current) => current.filter((item) => item.id !== productId));
   }
 
   function confirmOrder() {
@@ -76,8 +93,8 @@ export default function BazarApp() {
 
     const order: Order = {
       id: `BZ-${1043 + orders.length}`,
-      status: "Recibido",
-      total: subtotal,
+      status: `Pago simulado: ${paymentMethod}`,
+      total: orderTotal,
       commission,
       premier,
       items: cart,
@@ -85,8 +102,27 @@ export default function BazarApp() {
 
     setOrders((current) => [order, ...current]);
     setCart([]);
+    setCheckoutStep("carrito");
     setActiveUser((current) => current ?? initialUsers[0]);
     setView("cuenta");
+  }
+
+  function continueCheckout() {
+    if (cart.length === 0) {
+      return;
+    }
+
+    if (checkoutStep === "carrito") {
+      setCheckoutStep("entrega");
+      return;
+    }
+
+    if (checkoutStep === "entrega") {
+      setCheckoutStep("pago");
+      return;
+    }
+
+    confirmOrder();
   }
 
   function signInAs(user: UserAccount) {
@@ -192,67 +228,182 @@ export default function BazarApp() {
       </header>
 
       {view === "comprar" && (
-        <section className="market-layout">
-          <aside className="panel">
-            <h2>Filtros</h2>
-            <label><input type="checkbox" defaultChecked /> Envio gratis</label>
-            <label><input type="checkbox" /> Llega hoy</label>
-            <label><input type="checkbox" defaultChecked /> Suma Premier</label>
-          </aside>
-
-          <section className="results">
-            <div className="hero">
+        <section className="market-shell">
+          <div className="market-hero">
+            <div>
               <p>Marketplace local</p>
-              <h1>Compra en comercios cercanos y deja el pedido ordenado.</h1>
+              <h1>Compra cerca, paga seguro y acumula Premier.</h1>
               <span>
-                Bazar busca reemplazar ventas sueltas por redes con catalogo,
-                carrito, pedido y beneficios Premier.
+                Catalogo, carrito, despacho y pagos en un solo flujo para reemplazar ventas
+                sueltas por redes sociales.
               </span>
             </div>
-            {filteredProducts.map((product) => (
-              <article className="product" key={product.id}>
-                <div className="image" />
-                <div>
-                  <p>{product.store}</p>
-                  <h2>{product.name}</h2>
-                  <span>{product.tag} · +{product.premier} Premier</span>
-                </div>
-                <div className="product-action">
-                  <strong>{money.format(product.price)}</strong>
-                  <button type="button" onClick={() => addToCart(product)}>
-                    Agregar
-                  </button>
-                </div>
-              </article>
-            ))}
-          </section>
+            <div className="hero-metrics">
+              <article><strong>24 h</strong><span>Despacho local</span></article>
+              <article><strong>+Premier</strong><span>Beneficios por compra</span></article>
+              <article><strong>10%</strong><span>Comision Bazar visible</span></article>
+            </div>
+          </div>
 
-          <aside className="panel checkout">
-            <h2>Tu compra</h2>
-            {cart.length === 0 ? (
-              <p>Agrega productos para simular el carrito.</p>
-            ) : (
-              <div className="cart-list">
-                {cart.map((item) => (
-                  <div key={item.id}>
-                    <span>{item.quantity} x {item.name}</span>
-                    <strong>{money.format(item.price * item.quantity)}</strong>
-                  </div>
+          <div className="category-strip" aria-label="Categorias">
+            {categories.map((category) => (
+              <button
+                type="button"
+                key={category}
+                className={selectedCategory === category ? "active" : ""}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          <div className="market-layout">
+            <aside className="panel filter-panel">
+              <h2>Compra inteligente</h2>
+              <label><input type="checkbox" defaultChecked /> Comercios verificados</label>
+              <label><input type="checkbox" defaultChecked /> Suma Premier</label>
+              <label><input type="checkbox" /> Solo despacho hoy</label>
+              <div className="trust-box">
+                <strong>Pago protegido</strong>
+                <span>Primero simulamos Webpay, Mercado Pago, transferencia y saldo Bazar.</span>
+              </div>
+            </aside>
+
+            <section className="results">
+              <div className="results-head">
+                <div>
+                  <p>{filteredProducts.length} resultados</p>
+                  <h2>{selectedCategory === "Todos" ? "Productos destacados" : selectedCategory}</h2>
+                </div>
+                <span>Orden recomendado</span>
+              </div>
+
+              <div className="product-grid">
+                {filteredProducts.map((product) => (
+                  <article className="product-card" key={product.id}>
+                    <div className={`image ${product.imageClass}`} />
+                    <div className="product-body">
+                      <p>{product.store}</p>
+                      <h2>{product.name}</h2>
+                      <span>{product.delivery} · {product.tag}</span>
+                      <strong>{money.format(product.price)}</strong>
+                    </div>
+                    <div className="product-footer">
+                      <mark>+{product.premier} Premier</mark>
+                      <button type="button" onClick={() => addToCart(product)}>
+                        Agregar
+                      </button>
+                    </div>
+                  </article>
                 ))}
               </div>
-            )}
-            <div className="totals">
-              <span>Subtotal</span>
-              <strong>{money.format(subtotal)}</strong>
-            </div>
-            <div className="totals">
-              <span>Premier</span>
-              <strong>{premier} pts</strong>
-            </div>
-            <button type="button" onClick={confirmOrder} disabled={cart.length === 0}>
-              Confirmar pedido
-            </button>
-          </aside>
+            </section>
+
+            <aside className="checkout">
+              <div className="checkout-card">
+                <h2>Checkout</h2>
+                <div className="checkout-steps" aria-label="Pasos de compra">
+                  {["carrito", "entrega", "pago"].map((step) => (
+                    <span key={step} className={checkoutStep === step ? "active" : ""}>
+                      {step}
+                    </span>
+                  ))}
+                </div>
+
+                {cart.length === 0 ? (
+                  <p className="empty-cart">Agrega productos para iniciar una compra.</p>
+                ) : (
+                  <div className="cart-list">
+                    {cart.map((item) => (
+                      <div key={item.id}>
+                        <span>{item.quantity} x {item.name}</span>
+                        <strong>{money.format(item.price * item.quantity)}</strong>
+                        <button type="button" onClick={() => removeFromCart(item.id)}>
+                          Quitar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {checkoutStep === "entrega" && (
+                  <div className="checkout-form">
+                    <label>
+                      Direccion
+                      <input
+                        value={shippingAddress}
+                        onChange={(event) => setShippingAddress(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Entrega
+                      <select
+                        value={deliveryMethod}
+                        onChange={(event) =>
+                          setDeliveryMethod(event.target.value as "Despacho" | "Retiro")
+                        }
+                      >
+                        <option value="Despacho">Despacho a domicilio</option>
+                        <option value="Retiro">Retiro en comercio</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
+
+                {checkoutStep === "pago" && (
+                  <div className="payment-options">
+                    {["Webpay", "Mercado Pago", "Transferencia", "Saldo Bazar"].map((method) => (
+                      <button
+                        type="button"
+                        key={method}
+                        className={paymentMethod === method ? "active" : ""}
+                        onClick={() => setPaymentMethod(method)}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="totals">
+                  <span>Subtotal</span>
+                  <strong>{money.format(subtotal)}</strong>
+                </div>
+                <div className="totals">
+                  <span>Despacho</span>
+                  <strong>{money.format(deliveryFee)}</strong>
+                </div>
+                <div className="totals">
+                  <span>Servicio Bazar</span>
+                  <strong>{money.format(serviceFee)}</strong>
+                </div>
+                <div className="totals total-final">
+                  <span>Total</span>
+                  <strong>{money.format(orderTotal)}</strong>
+                </div>
+                <div className="totals">
+                  <span>Premier</span>
+                  <strong>{premier} pts</strong>
+                </div>
+
+                <button type="button" onClick={continueCheckout} disabled={cart.length === 0}>
+                  {checkoutStep === "carrito" && "Continuar a entrega"}
+                  {checkoutStep === "entrega" && "Continuar a pago"}
+                  {checkoutStep === "pago" && `Pagar con ${paymentMethod}`}
+                </button>
+                {checkoutStep !== "carrito" && (
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    onClick={() => setCheckoutStep(checkoutStep === "pago" ? "entrega" : "carrito")}
+                  >
+                    Volver
+                  </button>
+                )}
+              </div>
+            </aside>
+          </div>
         </section>
       )}
 

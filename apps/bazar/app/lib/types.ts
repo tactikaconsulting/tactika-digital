@@ -6,9 +6,12 @@ export type Product = {
   id: number;
   name: string;
   store: string;
+  category: string;
   price: number;
   tag: string;
+  delivery: string;
   premier: number;
+  imageClass: string;
 };
 
 export type CartItem = Product & { quantity: number };
