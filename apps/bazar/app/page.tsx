@@ -515,7 +515,10 @@ export default function BazarApp() {
       return;
     }
 
-    const orderReference = `${1043 + orders.length}`;
+    const orderReference = `${Date.now().toString(36).toUpperCase()}-${Math.random()
+      .toString(36)
+      .slice(2, 6)
+      .toUpperCase()}`;
     const order: Order = {
       id: `BZ-${orderReference}`,
       status: "Pedido pagado",
