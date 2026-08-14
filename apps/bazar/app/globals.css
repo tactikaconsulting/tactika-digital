@@ -636,6 +636,16 @@ select {
   font-size: 1.05rem;
 }
 
+.section-title .connection-state {
+  display: inline-block;
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: var(--green);
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
 .back-link {
   min-height: 40px;
   margin-top: 18px;
@@ -782,6 +792,12 @@ select {
   background: var(--blue);
   color: #ffffff;
   font-weight: 950;
+}
+
+.auth-form button:disabled {
+  cursor: wait;
+  background: #cfcfcf;
+  color: #777777;
 }
 
 .auth-message {

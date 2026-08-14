@@ -64,3 +64,16 @@ Project Settings > Database
 Un pedido no debe pasar a `pago_aprobado` solo porque el usuario vuelve desde la pasarela.
 Debe aprobarse solo cuando el servidor recibe un evento valido, verifica firma, monto, referencia
 y estado del proveedor.
+
+## Login inicial
+
+La app ya puede usar Supabase Auth cuando existan las variables en Vercel.
+
+En el MVP se usa una clave temporal fija para pruebas:
+
+```text
+bazar-mvp-password
+```
+
+Antes de operar con usuarios reales, hay que cambiar esto por una pantalla de clave real,
+recuperacion de clave y confirmacion de correo.

@@ -15,7 +15,7 @@ create type payment_status as enum ('pendiente', 'aprobado', 'rechazado', 'revis
 create type risk_level as enum ('bajo', 'medio', 'alto');
 
 create table users (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   email text not null unique,
   role user_role not null default 'cliente',
@@ -129,3 +129,85 @@ create index order_items_order_id_idx on order_items(order_id);
 create index payments_order_id_idx on payments(order_id);
 create index payment_events_payment_id_idx on payment_events(payment_id);
 create index audit_logs_entity_idx on audit_logs(entity_type, entity_id);
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.users (id, name, email, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    new.email,
+    coalesce(new.raw_user_meta_data->>'role', 'cliente')::user_role
+  )
+  on conflict (id) do update set
+    name = excluded.name,
+    email = excluded.email,
+    role = excluded.role,
+    updated_at = now();
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_auth_user();
+
+alter table users enable row level security;
+alter table merchants enable row level security;
+alter table products enable row level security;
+alter table orders enable row level security;
+alter table order_items enable row level security;
+alter table payments enable row level security;
+alter table payment_events enable row level security;
+alter table premier_ledger enable row level security;
+alter table audit_logs enable row level security;
+
+create policy "users can read own profile"
+on users for select
+using (auth.uid() = id);
+
+create policy "users can update own profile"
+on users for update
+using (auth.uid() = id);
+
+create policy "public can read active products"
+on products for select
+using (is_active = true);
+
+create policy "buyers can read own orders"
+on orders for select
+using (auth.uid() = buyer_user_id);
+
+create policy "buyers can read own order items"
+on order_items for select
+using (
+  exists (
+    select 1
+    from orders
+    where orders.id = order_items.order_id
+      and orders.buyer_user_id = auth.uid()
+  )
+);
+
+create policy "buyers can read own payments"
+on payments for select
+using (
+  exists (
+    select 1
+    from orders
+    where orders.id = payments.order_id
+      and orders.buyer_user_id = auth.uid()
+  )
+);
+
+create policy "users can read own premier ledger"
+on premier_ledger for select
+using (auth.uid() = user_id);

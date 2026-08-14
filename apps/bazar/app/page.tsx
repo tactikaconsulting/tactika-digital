@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { money } from "./lib/format";
 import { databaseChecklist, databaseModules } from "./lib/database-plan";
 import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
+import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
 import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
 export default function BazarApp() {
@@ -17,6 +18,7 @@ export default function BazarApp() {
   const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [deliveryMethod, setDeliveryMethod] = useState<"Despacho" | "Retiro">("Despacho");
@@ -67,6 +69,7 @@ export default function BazarApp() {
     277000,
   );
   const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
+  const supabaseConfigured = isSupabaseConfigured();
 
   function addToCart(product: Product) {
     setCart((current) => {
@@ -164,8 +167,40 @@ export default function BazarApp() {
     setView("cuenta");
   }
 
-  function submitLogin() {
+  async function submitLogin() {
     const email = loginEmail.trim().toLowerCase();
+
+    if (!email) {
+      setAuthMessage("Ingresa tu correo para continuar.");
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    if (supabase) {
+      setAuthLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: "bazar-mvp-password",
+      });
+      setAuthLoading(false);
+
+      if (error || !data.user) {
+        setAuthMessage("No pudimos iniciar sesion en Supabase. Revisa correo, clave o confirmacion.");
+        return;
+      }
+
+      const role = (data.user.user_metadata.role as UserRole | undefined) ?? "cliente";
+      signInAs({
+        id: data.user.id,
+        name: data.user.user_metadata.name ?? data.user.email ?? "Usuario Bazar",
+        email: data.user.email ?? email,
+        role,
+        status: "Activo",
+      });
+      return;
+    }
+
     const user = users.find((account) => account.email.toLowerCase() === email);
 
     if (!user) {
@@ -176,9 +211,49 @@ export default function BazarApp() {
     signInAs(user);
   }
 
-  function submitRegistration() {
+  async function submitRegistration() {
     if (!accountDraft.name.trim() || !accountDraft.email.trim()) {
       setAuthMessage("Completa nombre y correo para crear la cuenta.");
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+
+    if (supabase) {
+      setAuthLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email: accountDraft.email.trim(),
+        password: "bazar-mvp-password",
+        options: {
+          data: {
+            name: accountDraft.name.trim(),
+            role: accountDraft.role,
+          },
+        },
+      });
+      setAuthLoading(false);
+
+      if (error) {
+        setAuthMessage(error.message);
+        return;
+      }
+
+      if (!data.user) {
+        setAuthMessage("Cuenta enviada a Supabase. Revisa si requiere confirmacion por correo.");
+        return;
+      }
+
+      const createdUser: UserAccount = {
+        id: data.user.id,
+        name: accountDraft.name.trim(),
+        email: data.user.email ?? accountDraft.email.trim(),
+        role: accountDraft.role,
+        status: "Activo",
+      };
+
+      setUsers((current) => [createdUser, ...current]);
+      setAccountDraft({ name: "", email: "", role: "cliente" });
+      signInAs(createdUser);
       return;
     }
 
@@ -464,6 +539,9 @@ export default function BazarApp() {
               El MVP ya deja clara la base del sistema: clientes compran, comercios venden
               y administradores gestionan la plataforma.
             </span>
+            <span className="connection-state">
+              {supabaseConfigured ? "Supabase configurado: ingreso real activo." : "Modo demo: agrega variables de Supabase en Vercel para activar ingreso real."}
+            </span>
           </div>
 
           <div className="auth-layout">
@@ -506,8 +584,8 @@ export default function BazarApp() {
                     Clave
                     <input placeholder="Clave simulada para MVP" type="password" />
                   </label>
-                  <button type="button" onClick={submitLogin}>
-                    Entrar a mi cuenta
+                  <button type="button" onClick={submitLogin} disabled={authLoading}>
+                    {authLoading ? "Entrando..." : "Entrar a mi cuenta"}
                   </button>
                 </div>
               ) : (
@@ -548,8 +626,8 @@ export default function BazarApp() {
                       <option value="comercio">Comercio vendedor</option>
                     </select>
                   </label>
-                  <button type="button" onClick={submitRegistration}>
-                    Crear y entrar
+                  <button type="button" onClick={submitRegistration} disabled={authLoading}>
+                    {authLoading ? "Creando..." : "Crear y entrar"}
                   </button>
                 </div>
               )}
