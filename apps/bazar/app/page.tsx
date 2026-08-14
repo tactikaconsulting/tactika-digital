@@ -601,7 +601,16 @@ export default function BazarApp() {
         setOrderSaving(false);
       }
     } else {
-      setOrderMessage("Pedido simulado: usa productos guardados en Supabase para registrar pedido real.");
+      setOrderMessage(
+        paymentMethod === "Getnet"
+          ? "Pedido de prueba creado. Redirigiendo a Getnet..."
+          : "Pedido simulado: usa productos guardados en Supabase para registrar pedido real.",
+      );
+
+      if (paymentMethod === "Getnet") {
+        await redirectToGetnet(order.id, orderTotal);
+        return;
+      }
     }
 
     setOrders((current) => [order, ...current]);
