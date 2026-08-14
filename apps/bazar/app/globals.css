@@ -218,6 +218,47 @@ select {
   color: #ffffff;
 }
 
+.ad-marketplace {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ad-marketplace article {
+  display: grid;
+  gap: 8px;
+  border-radius: 8px;
+  background: #fff7d6;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.ad-marketplace span {
+  color: #665500;
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.ad-marketplace strong {
+  font-size: 1.1rem;
+}
+
+.ad-marketplace p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.ad-marketplace mark {
+  justify-self: start;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #333333;
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
 .form-panel,
 .table-panel {
   display: grid;
@@ -942,6 +983,30 @@ select {
   align-content: start;
 }
 
+.admin-gate {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #eeeeee;
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+.admin-gate input {
+  min-height: 42px;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  padding: 0 12px;
+}
+
+.admin-gate button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 900;
+}
+
 .demo-users h2,
 .demo-users p {
   margin: 0;
@@ -1014,6 +1079,191 @@ select {
 
 .cards span {
   color: var(--muted);
+}
+
+.verification-panel,
+.premier-panel,
+.stock-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.verification-panel > div:first-child p,
+.premier-head p,
+.stock-head p {
+  margin: 0 0 6px;
+  color: var(--blue);
+  font-weight: 900;
+}
+
+.verification-panel h2,
+.premier-panel h2,
+.stock-panel h2 {
+  margin: 0;
+}
+
+.verification-panel span,
+.premier-head span,
+.stock-head span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.verification-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.verification-form label {
+  display: grid;
+  gap: 7px;
+  color: #333333;
+  font-weight: 850;
+}
+
+.verification-form input {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.verification-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border-radius: 8px;
+  background: #f7f7f7;
+  padding: 14px;
+}
+
+.verification-status strong {
+  color: var(--green);
+}
+
+.verification-status p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.verification-status button,
+.stock-head button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #ffffff;
+  padding: 0 14px;
+  font-weight: 900;
+}
+
+.premier-head,
+.stock-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.premier-head > strong {
+  border-radius: 8px;
+  background: #e9f7ef;
+  color: var(--green);
+  padding: 18px;
+  font-size: 1.7rem;
+}
+
+.premier-benefits,
+.merchant-product-panel,
+.stock-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.merchant-product-panel {
+  grid-template-columns: 320px minmax(0, 1fr);
+  margin-top: 16px;
+}
+
+.benefit-card,
+.stock-card {
+  display: grid;
+  gap: 10px;
+  border-radius: 8px;
+  background: #f7f7f7;
+  padding: 16px;
+}
+
+.benefit-card h3 {
+  margin: 0;
+}
+
+.benefit-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.benefit-card mark,
+.stock-card mark {
+  justify-self: start;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: var(--blue);
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.benefit-card button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.benefit-card button:disabled {
+  cursor: not-allowed;
+  background: #d8d8d8;
+  color: #777777;
+}
+
+.stock-card {
+  grid-template-columns: minmax(0, 1fr) 74px auto;
+  align-items: center;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.stock-card span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.stock-card input {
+  min-height: 40px;
+  width: 74px;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  padding: 0 10px;
+  text-align: center;
+  font-weight: 900;
 }
 
 .payment-grid {
@@ -1293,20 +1543,28 @@ select {
   .customer-grid,
   .merchant-layout,
   .merchant-grid,
+  .merchant-product-panel,
   .admin-control-layout,
   .revenue-dashboard,
   .auth-layout,
   .payments-layout,
   .security-grid,
   .database-layout,
-  .database-row {
+  .database-row,
+  .verification-form,
+  .verification-status,
+  .premier-head,
+  .stock-head {
     grid-template-columns: 1fr;
   }
 
   .header-inner nav,
   .product-grid,
   .cards,
-  .payment-grid {
+  .payment-grid,
+  .ad-marketplace,
+  .premier-benefits,
+  .stock-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1343,7 +1601,10 @@ select {
 @media (max-width: 640px) {
   .product-grid,
   .cards,
-  .payment-grid {
+  .payment-grid,
+  .ad-marketplace,
+  .premier-benefits,
+  .stock-grid {
     grid-template-columns: 1fr;
   }
 

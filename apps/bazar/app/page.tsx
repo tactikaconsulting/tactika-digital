@@ -1,21 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { money } from "./lib/format";
 import { databaseChecklist, databaseModules } from "./lib/database-plan";
 import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
 import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
 import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
+type KycDraft = {
+  rut: string;
+  documentNumber: string;
+  documentSerial: string;
+  frontPhoto: string;
+  selfiePhoto: string;
+};
+
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
   const [adminSection, setAdminSection] = useState<"resumen" | "clientes" | "comercios" | "usuarios" | "ganancias" | "pagos" | "datos">("resumen");
+  const [customerSection, setCustomerSection] = useState<"compras" | "direcciones" | "premier" | "pagos" | "verificacion">("compras");
+  const [merchantSection, setMerchantSection] = useState<"resumen" | "productos" | "stock" | "pedidos" | "pagos" | "verificacion">("resumen");
   const [checkoutStep, setCheckoutStep] = useState<"carrito" | "entrega" | "pago">("carrito");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<PaymentAttempt[]>([]);
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
+  const [adminCode, setAdminCode] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -30,6 +41,15 @@ export default function BazarApp() {
     email: "",
     role: "cliente" as Exclude<UserRole, "admin">,
   });
+  const [kycDraft, setKycDraft] = useState<KycDraft>({
+    rut: "",
+    documentNumber: "",
+    documentSerial: "",
+    frontPhoto: "",
+    selfiePhoto: "",
+  });
+  const [kycSubmitted, setKycSubmitted] = useState(false);
+  const [redeemedPremier, setRedeemedPremier] = useState(0);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -75,6 +95,12 @@ export default function BazarApp() {
   const bazarRevenue = payments.reduce((total, payment) => total + payment.amount, 0) + 480000;
   const merchantSales = orders.reduce((total, order) => total + order.total - order.commission, 2770000);
   const pendingKyc = merchantUsers.filter((user) => user.status.toLowerCase().includes("pendiente")).length;
+  const premierBalance = 1840 + orders.reduce((total, order) => total + order.premier, 0) - redeemedPremier;
+  const adSlots = [
+    ["Banner superior", "$120.000/mes", "Marca visible en la vitrina principal"],
+    ["Producto destacado", money.format(businessRules.sponsoredProductsMonthlyFee), "Prioridad en categoria"],
+    ["Comercio aliado", "$180.000/mes", "Bloque de tienda recomendada"],
+  ];
 
   function addToCart(product: Product) {
     setCart((current) => {
@@ -170,6 +196,36 @@ export default function BazarApp() {
     }
 
     setView("cuenta");
+  }
+
+  function unlockAdmin() {
+    if (adminCode.trim() !== "BAZAR-ADMIN") {
+      setAuthMessage("Codigo admin incorrecto.");
+      return;
+    }
+
+    const adminUser = users.find((user) => user.role === "admin") ?? initialUsers[2];
+    signInAs(adminUser);
+    setAdminCode("");
+  }
+
+  function submitKyc() {
+    if (!kycDraft.rut.trim() || !kycDraft.documentNumber.trim() || !kycDraft.documentSerial.trim()) {
+      setAuthMessage("Completa RUT, numero de documento y numero de serie.");
+      return;
+    }
+
+    setKycSubmitted(true);
+    setAuthMessage("");
+    setActiveUser((current) => current ? { ...current, status: "Verificacion enviada" } : current);
+  }
+
+  function redeemPremier(points: number) {
+    if (premierBalance < points) {
+      return;
+    }
+
+    setRedeemedPremier((current) => current + points);
   }
 
   async function submitLogin() {
@@ -319,7 +375,7 @@ export default function BazarApp() {
           <nav>
             <button type="button" onClick={() => setView("comprar")}>Comprar</button>
             <button type="button" onClick={() => setView("vender")}>Comercio</button>
-            <button type="button" onClick={() => setView(activeUser ? "cuenta" : "ingresar")}>
+            <button type="button" className="account-nav" onClick={() => setView(activeUser ? "cuenta" : "ingresar")}>
               {activeUser ? "Mi cuenta" : "Ingresar"}
             </button>
           </nav>
@@ -359,6 +415,17 @@ export default function BazarApp() {
               </button>
             ))}
           </div>
+
+          <section className="ad-marketplace">
+            {adSlots.map(([name, price, description]) => (
+              <article key={name}>
+                <span>Espacio publicitario</span>
+                <strong>{name}</strong>
+                <p>{description}</p>
+                <mark>{price}</mark>
+              </article>
+            ))}
+          </section>
 
           <div className="market-layout">
             <aside className="panel filter-panel">
@@ -642,8 +709,8 @@ export default function BazarApp() {
 
             <aside className="demo-users">
               <h2>Usuarios de prueba</h2>
-              <p>Sirven para revisar los roles mientras conectamos autenticacion real.</p>
-              {users.slice(0, 3).map((user) => (
+              <p>Sirven para revisar cliente y comercio mientras conectamos autenticacion real.</p>
+              {users.filter((user) => user.role !== "admin").slice(0, 2).map((user) => (
                 <article className="login-card" key={user.id}>
                   <span>{user.role}</span>
                   <strong>{user.name}</strong>
@@ -653,6 +720,18 @@ export default function BazarApp() {
                   </button>
                 </article>
               ))}
+              <div className="admin-gate">
+                <h2>Acceso privado</h2>
+                <input
+                  value={adminCode}
+                  onChange={(event) => setAdminCode(event.target.value)}
+                  placeholder="Codigo administrador"
+                  type="password"
+                />
+                <button type="button" onClick={unlockAdmin}>
+                  Entrar a admin
+                </button>
+              </div>
             </aside>
           </div>
         </section>
@@ -675,10 +754,10 @@ export default function BazarApp() {
               <section className="account-main">
                 <div className="cards">
                   {[
-                    [String(1840 + orders.reduce((total, order) => total + order.premier, 0)), "Puntos Premier"],
+                    [String(premierBalance), "Puntos Premier"],
                     [String(12 + orders.length), "Compras"],
                     ["3", "Direcciones"],
-                    ["2", "Medios de pago"],
+                    [kycSubmitted ? "En revision" : "Pendiente", "Verificacion"],
                   ].map(([value, label]) => (
                     <article key={label}>
                       <strong>{value}</strong>
@@ -686,36 +765,65 @@ export default function BazarApp() {
                     </article>
                   ))}
                 </div>
-                <div className="customer-grid">
-                  <article>
-                    <h2>Resumen cliente</h2>
-                    <span>Cuenta: {activeUser.email}</span>
-                    <span>Rol: {activeUser.role}</span>
-                    <span>Estado: {activeUser.status}</span>
-                  </article>
-                  <article>
-                    <h2>Beneficios Premier</h2>
-                    <strong>{1840 + orders.reduce((total, order) => total + order.premier, 0)} pts</strong>
-                    <span>Los puntos se acumulan por compras aprobadas.</span>
-                  </article>
-                  <article>
-                    <h2>Medios de pago</h2>
-                    <span>Webpay preparado</span>
-                    <span>Mercado Pago con validacion servidor</span>
-                    <span>Transferencia en revision manual</span>
-                  </article>
-                </div>
-                <OrderList orders={orders} />
+                {customerSection === "compras" && (
+                  <>
+                    <div className="customer-grid">
+                      <article>
+                        <h2>Resumen cliente</h2>
+                        <span>Cuenta: {activeUser.email}</span>
+                        <span>Rol: {activeUser.role}</span>
+                        <span>Estado: {activeUser.status}</span>
+                      </article>
+                      <article>
+                        <h2>Compras protegidas</h2>
+                        <span>Pago validado por servidor</span>
+                        <span>Pedido liberado solo con pago aprobado</span>
+                      </article>
+                      <article>
+                        <h2>Soporte</h2>
+                        <span>Reclamos y devoluciones</span>
+                        <span>Seguimiento de despacho</span>
+                      </article>
+                    </div>
+                    <OrderList orders={orders} />
+                  </>
+                )}
+                {customerSection === "direcciones" && (
+                  <div className="customer-grid">
+                    <article><h2>Casa</h2><span>Av. Principal 123, Santiago</span><span>Despacho preferido</span></article>
+                    <article><h2>Trabajo</h2><span>Direccion por completar</span><span>Pendiente</span></article>
+                    <article><h2>Retiro</h2><span>Retiro en comercio disponible</span><span>Sin costo despacho</span></article>
+                  </div>
+                )}
+                {customerSection === "premier" && (
+                  <PremierPanel balance={premierBalance} onRedeem={redeemPremier} />
+                )}
+                {customerSection === "pagos" && (
+                  <div className="customer-grid">
+                    <article><h2>Webpay</h2><span>Preparado para integracion</span><span>Validacion por webhook</span></article>
+                    <article><h2>Mercado Pago</h2><span>Solo si servidor confirma pago</span><span>No se aceptan capturas</span></article>
+                    <article><h2>Transferencia</h2><span>Riesgo medio</span><span>Requiere revision manual</span></article>
+                  </div>
+                )}
+                {customerSection === "verificacion" && (
+                  <KycPanel
+                    draft={kycDraft}
+                    submitted={kycSubmitted}
+                    onChange={setKycDraft}
+                    onSubmit={submitKyc}
+                  />
+                )}
               </section>
 
               <aside className="account-panel">
                 <h2>Cuenta cliente</h2>
-                <button type="button" className="active">
+                <button type="button" className={customerSection === "compras" ? "active" : ""} onClick={() => setCustomerSection("compras")}>
                   Mis compras
                 </button>
-                <button type="button">Direcciones</button>
-                <button type="button">Premier</button>
-                <button type="button">Pagos</button>
+                <button type="button" className={customerSection === "direcciones" ? "active" : ""} onClick={() => setCustomerSection("direcciones")}>Direcciones</button>
+                <button type="button" className={customerSection === "premier" ? "active" : ""} onClick={() => setCustomerSection("premier")}>Premier</button>
+                <button type="button" className={customerSection === "pagos" ? "active" : ""} onClick={() => setCustomerSection("pagos")}>Pagos</button>
+                <button type="button" className={customerSection === "verificacion" ? "active" : ""} onClick={() => setCustomerSection("verificacion")}>Verificacion</button>
                 <button type="button" onClick={() => setView("ingresar")}>
                   Cambiar usuario
                 </button>
@@ -748,11 +856,12 @@ export default function BazarApp() {
             <div className="merchant-layout">
               <aside className="merchant-menu">
                 <h2>Mi tienda</h2>
-                <button type="button" className="active">Resumen</button>
-                <button type="button">Productos</button>
-                <button type="button">Stock</button>
-                <button type="button">Pedidos</button>
-                <button type="button">Pagos</button>
+                <button type="button" className={merchantSection === "resumen" ? "active" : ""} onClick={() => setMerchantSection("resumen")}>Resumen</button>
+                <button type="button" className={merchantSection === "productos" ? "active" : ""} onClick={() => setMerchantSection("productos")}>Productos</button>
+                <button type="button" className={merchantSection === "stock" ? "active" : ""} onClick={() => setMerchantSection("stock")}>Stock</button>
+                <button type="button" className={merchantSection === "pedidos" ? "active" : ""} onClick={() => setMerchantSection("pedidos")}>Pedidos</button>
+                <button type="button" className={merchantSection === "pagos" ? "active" : ""} onClick={() => setMerchantSection("pagos")}>Pagos</button>
+                <button type="button" className={merchantSection === "verificacion" ? "active" : ""} onClick={() => setMerchantSection("verificacion")}>Verificacion</button>
               </aside>
               <section className="merchant-main">
                 <div className="cards">
@@ -761,29 +870,70 @@ export default function BazarApp() {
                   <article><strong>{products.length}</strong><span>Productos publicados</span></article>
                   <article><strong>{money.format(monthlyCommission)}</strong><span>Comision Bazar</span></article>
                 </div>
-                <div className="merchant-grid">
-                  <div className="table-panel">
-                    <h2>Catalogo activo</h2>
-                    {products.map((product) => (
-                      <article className="merchant-row" key={product.id}>
-                        <div>
-                          <strong>{product.name}</strong>
-                          <span>{product.category} · {product.store}</span>
-                        </div>
-                        <mark>Activo</mark>
-                        <strong>{money.format(product.price)}</strong>
-                      </article>
-                    ))}
+                {merchantSection === "resumen" && (
+                  <>
+                    <div className="merchant-grid">
+                      <div className="table-panel">
+                        <h2>Catalogo activo</h2>
+                        {products.map((product) => (
+                          <article className="merchant-row" key={product.id}>
+                            <div>
+                              <strong>{product.name}</strong>
+                              <span>{product.category} · {product.store}</span>
+                            </div>
+                            <mark>Activo</mark>
+                            <strong>{money.format(product.price)}</strong>
+                          </article>
+                        ))}
+                      </div>
+                      <div className="merchant-side">
+                        <h2>Operacion</h2>
+                        <span>Preparar pedidos pagados</span>
+                        <span>Actualizar stock antes de vender</span>
+                        <span>Revisar pagos en conciliacion</span>
+                        <span>Solicitar destaque o plan Pro</span>
+                      </div>
+                    </div>
+                    <OrderList orders={orders} />
+                  </>
+                )}
+                {merchantSection === "productos" && (
+                  <MerchantProductPanel products={products} />
+                )}
+                {merchantSection === "stock" && (
+                  <StockPanel products={products} />
+                )}
+                {merchantSection === "pedidos" && (
+                  <OrderList orders={orders} />
+                )}
+                {merchantSection === "pagos" && (
+                  <div className="merchant-grid">
+                    <div className="table-panel">
+                      <h2>Pagos comercio</h2>
+                      {payments.length === 0 ? <p>No hay pagos conciliados.</p> : payments.map((payment) => (
+                        <article className="payment-row" key={payment.id}>
+                          <div><strong>{payment.id}</strong><span>{payment.provider}</span></div>
+                          <mark>{payment.status}</mark>
+                          <strong>{money.format(payment.amount)}</strong>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="merchant-side">
+                      <h2>Reglas de pago</h2>
+                      <span>Saldo comercio despues de comision</span>
+                      <span>Pagos sospechosos quedan retenidos</span>
+                      <span>Transferencia requiere conciliacion</span>
+                    </div>
                   </div>
-                  <div className="merchant-side">
-                    <h2>Operacion</h2>
-                    <span>Preparar pedidos pagados</span>
-                    <span>Actualizar stock antes de vender</span>
-                    <span>Revisar pagos en conciliacion</span>
-                    <span>Solicitar destaque o plan Pro</span>
-                  </div>
-                </div>
-                <OrderList orders={orders} />
+                )}
+                {merchantSection === "verificacion" && (
+                  <KycPanel
+                    draft={kycDraft}
+                    submitted={kycSubmitted}
+                    onChange={setKycDraft}
+                    onSubmit={submitKyc}
+                  />
+                )}
               </section>
             </div>
           </section>
@@ -1124,6 +1274,184 @@ function EmptyAccess({ onSignIn }: { onSignIn: () => void }) {
         Ir a ingresar
       </button>
     </div>
+  );
+}
+
+function KycPanel({
+  draft,
+  submitted,
+  onChange,
+  onSubmit,
+}: {
+  draft: KycDraft;
+  submitted: boolean;
+  onChange: Dispatch<SetStateAction<KycDraft>>;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="verification-panel">
+      <div>
+        <p>Ingreso seguro</p>
+        <h2>Verificacion de identidad</h2>
+        <span>
+          Para comprar o vender con confianza, Bazar debe validar RUT, numero de documento,
+          foto del carnet y selfie. En produccion esto se conecta a Supabase Storage y revision
+          interna del administrador.
+        </span>
+      </div>
+
+      <div className="verification-form">
+        <label>
+          RUT
+          <input
+            value={draft.rut}
+            onChange={(event) => onChange((current) => ({ ...current, rut: event.target.value }))}
+            placeholder="12.345.678-9"
+          />
+        </label>
+        <label>
+          Numero de documento
+          <input
+            value={draft.documentNumber}
+            onChange={(event) => onChange((current) => ({ ...current, documentNumber: event.target.value }))}
+            placeholder="Numero impreso en carnet"
+          />
+        </label>
+        <label>
+          Numero de serie
+          <input
+            value={draft.documentSerial}
+            onChange={(event) => onChange((current) => ({ ...current, documentSerial: event.target.value }))}
+            placeholder="Serie o identificador"
+          />
+        </label>
+        <label>
+          Foto carnet
+          <input
+            onChange={(event) =>
+              onChange((current) => ({ ...current, frontPhoto: event.target.files?.[0]?.name ?? "" }))
+            }
+            type="file"
+            accept="image/*"
+          />
+        </label>
+        <label>
+          Selfie actual
+          <input
+            onChange={(event) =>
+              onChange((current) => ({ ...current, selfiePhoto: event.target.files?.[0]?.name ?? "" }))
+            }
+            type="file"
+            accept="image/*"
+          />
+        </label>
+      </div>
+
+      <div className="verification-status">
+        <strong>{submitted ? "Verificacion enviada" : "Pendiente de envio"}</strong>
+        <span>{draft.frontPhoto || "Carnet no cargado"}</span>
+        <span>{draft.selfiePhoto || "Selfie no cargada"}</span>
+        <p>
+          Reglas: no liberar ventas grandes, retiros ni panel completo de comercio hasta aprobar
+          identidad. El administrador revisa coincidencia de datos y documentos.
+        </p>
+        <button type="button" onClick={onSubmit}>
+          Enviar verificacion
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PremierPanel({ balance, onRedeem }: { balance: number; onRedeem: (points: number) => void }) {
+  const benefits = [
+    ["500 pts", 500, "$2.000 descuento", "Cupon para compra sobre $15.000"],
+    ["1.500 pts", 1500, "Despacho gratis", "Disponible en comercios aliados"],
+    ["3.000 pts", 3000, "Beneficio aliado", "Promocion especial con marcas"],
+  ] as const;
+
+  return (
+    <section className="premier-panel">
+      <div className="premier-head">
+        <div>
+          <p>Premier</p>
+          <h2>Beneficios para clientes frecuentes</h2>
+          <span>Los puntos se ganan por compras aprobadas y se usan como beneficios, no como dinero.</span>
+        </div>
+        <strong>{balance} pts</strong>
+      </div>
+      <div className="premier-benefits">
+        {benefits.map(([label, points, title, description]) => (
+          <article className="benefit-card" key={label}>
+            <mark>{label}</mark>
+            <h3>{title}</h3>
+            <p>{description}</p>
+            <button type="button" onClick={() => onRedeem(points)} disabled={balance < points}>
+              Canjear
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MerchantProductPanel({ products }: { products: Product[] }) {
+  return (
+    <section className="merchant-product-panel">
+      <div className="form-panel">
+        <h2>Nuevo producto</h2>
+        <input placeholder="Nombre del producto" />
+        <input placeholder="Precio" />
+        <input placeholder="Categoria" />
+        <select defaultValue="activo">
+          <option value="activo">Publicar activo</option>
+          <option value="borrador">Guardar borrador</option>
+        </select>
+        <button type="button">Guardar producto</button>
+        <p>En el MVP queda como interfaz. Luego se guarda en Supabase y queda visible en Comprar.</p>
+      </div>
+      <div className="table-panel">
+        <h2>Productos publicados</h2>
+        {products.map((product) => (
+          <article className="merchant-row" key={product.id}>
+            <div>
+              <strong>{product.name}</strong>
+              <span>{product.store} · {product.category}</span>
+            </div>
+            <mark>Publicado</mark>
+            <strong>{money.format(product.price)}</strong>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StockPanel({ products }: { products: Product[] }) {
+  return (
+    <section className="stock-panel">
+      <div className="stock-head">
+        <div>
+          <p>Inventario</p>
+          <h2>Control de stock</h2>
+          <span>Evita vender productos sin disponibilidad y ayuda a preparar pedidos.</span>
+        </div>
+        <button type="button">Actualizar stock</button>
+      </div>
+      <div className="stock-grid">
+        {products.map((product, index) => (
+          <article className="stock-card" key={product.id}>
+            <div>
+              <strong>{product.name}</strong>
+              <span>{product.category}</span>
+            </div>
+            <input defaultValue={index % 2 === 0 ? 18 : 7} aria-label={`Stock de ${product.name}`} />
+            <mark>{index % 2 === 0 ? "OK" : "Bajo"}</mark>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
