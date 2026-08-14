@@ -37,8 +37,10 @@ export const databaseModules = [
 ];
 
 export const databaseChecklist = [
-  "Crear base Postgres en Neon o Supabase.",
-  "Agregar DATABASE_URL en Vercel.",
+  "Usar el proyecto Supabase existente de Tactika Consulting.",
+  "Agregar NEXT_PUBLIC_SUPABASE_URL en Vercel.",
+  "Agregar NEXT_PUBLIC_SUPABASE_ANON_KEY en Vercel.",
+  "Agregar DATABASE_URL en Vercel para tareas servidor.",
   "Ejecutar apps/bazar/db/schema.sql.",
   "Conectar login real a users.",
   "Guardar productos del comercio en products.",

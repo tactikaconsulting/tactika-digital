@@ -38,15 +38,17 @@ El esquema inicial esta en:
 apps/bazar/db/schema.sql
 ```
 
-La app esta preparada para Postgres usando Neon o Supabase. La variable requerida sera:
+La app esta preparada para Supabase Postgres. Las variables requeridas seran:
 
 ```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
 DATABASE_URL
 ```
 
 ## Proximas prioridades
 
-1. Crear base Postgres en Neon o Supabase.
+1. Ejecutar el esquema en Supabase.
 2. Conectar login real a usuarios y roles.
 3. Guardar comercios, productos, pedidos y pagos en la base.
 4. Conectar webhook real de pagos.

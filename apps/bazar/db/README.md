@@ -2,16 +2,15 @@
 
 Este directorio deja preparada la base real del MVP.
 
-## Motor recomendado
+## Motor usado
 
-Usar Postgres. Puede ser:
-
-- Neon Postgres en Vercel Marketplace.
-- Supabase Postgres.
+Usar Supabase Postgres del proyecto Tactika Consulting.
 
 ## Variable necesaria
 
 ```text
+NEXT_PUBLIC_SUPABASE_URL=https://...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 DATABASE_URL=postgres://...
 ```
 
@@ -30,6 +29,24 @@ apps/bazar/db/schema.sql
 ```
 
 en el editor SQL de Neon o Supabase.
+
+En Supabase se hace en:
+
+```text
+SQL Editor > New query
+```
+
+Las claves publicas se obtienen en:
+
+```text
+Project Settings > API
+```
+
+La URL de conexion Postgres se obtiene en:
+
+```text
+Project Settings > Database
+```
 
 ## Modulos cubiertos
 

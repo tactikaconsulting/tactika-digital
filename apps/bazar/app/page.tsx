@@ -836,10 +836,10 @@ export default function BazarApp() {
           {adminSection === "datos" && (
             <>
               <div className="cards">
-                <article><strong>Postgres</strong><span>Motor recomendado</span></article>
+                <article><strong>Supabase</strong><span>Base recomendada</span></article>
                 <article><strong>7</strong><span>Modulos de datos</span></article>
                 <article><strong>SQL listo</strong><span>apps/bazar/db/schema.sql</span></article>
-                <article><strong>DATABASE_URL</strong><span>Variable requerida</span></article>
+                <article><strong>3 env vars</strong><span>Variables requeridas</span></article>
               </div>
               <div className="database-layout">
                 <div className="table-panel">
