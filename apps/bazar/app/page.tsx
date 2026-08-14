@@ -211,7 +211,7 @@ export default function BazarApp() {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [deliveryMethod, setDeliveryMethod] = useState<"Despacho" | "Retiro">("Despacho");
-  const [paymentMethod, setPaymentMethod] = useState("Webpay");
+  const [paymentMethod, setPaymentMethod] = useState("Getnet");
   const [shippingAddress, setShippingAddress] = useState("Av. Principal 123, Santiago");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -361,14 +361,16 @@ export default function BazarApp() {
     const params = new URLSearchParams(window.location.search);
     const webpayStatus = params.get("webpay_status");
     const webpayMessage = params.get("webpay_message");
+    const getnetStatus = params.get("getnet_status");
+    const getnetMessage = params.get("getnet_message");
 
-    if (!webpayStatus) {
+    if (!webpayStatus && !getnetStatus) {
       return;
     }
 
     setView("cuenta");
     setCustomerSection("pagos");
-    setOrderMessage(webpayMessage ?? "Respuesta Webpay recibida.");
+    setOrderMessage(getnetMessage ?? webpayMessage ?? "Respuesta de pago recibida.");
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
@@ -486,6 +488,28 @@ export default function BazarApp() {
     form.submit();
   }
 
+  async function redirectToGetnet(orderId: string, amount: number) {
+    const response = await fetch("/api/payments/getnet/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ orderId, amount }),
+    });
+
+    const data = await response.json() as {
+      requestId?: number;
+      processUrl?: string;
+      error?: string;
+    };
+
+    if (!response.ok || !data.processUrl) {
+      throw new Error(data.error ?? "No se pudo iniciar Getnet.");
+    }
+
+    window.location.href = data.processUrl;
+  }
+
   async function confirmOrder() {
     if (cart.length === 0) {
       return;
@@ -550,11 +574,18 @@ export default function BazarApp() {
         payment.orderId = order.id;
         payment.reference = `SUPABASE-${String(order.id).slice(0, 8)}`;
         setOrderMessage(
-          paymentMethod === "Webpay"
-            ? "Pedido creado. Redirigiendo a Webpay..."
+          paymentMethod === "Getnet"
+            ? "Pedido creado. Redirigiendo a Getnet..."
+            : paymentMethod === "Webpay"
+              ? "Pedido creado. Redirigiendo a Webpay..."
             : "Pedido guardado real en Supabase.",
         );
         void loadRealOrders();
+
+        if (paymentMethod === "Getnet") {
+          await redirectToGetnet(order.id, orderTotal);
+          return;
+        }
 
         if (paymentMethod === "Webpay") {
           await redirectToWebpay(order.id, orderTotal);
@@ -1107,7 +1138,7 @@ export default function BazarApp() {
               <label><input type="checkbox" /> Solo despacho hoy</label>
               <div className="trust-box">
                 <strong>Pago protegido</strong>
-                <span>Primero simulamos Webpay, Mercado Pago, transferencia y saldo Bazar.</span>
+                <span>Getnet Web Checkout para tarjetas, mas transferencia y revision admin.</span>
               </div>
             </aside>
 
@@ -1195,7 +1226,7 @@ export default function BazarApp() {
                 {checkoutStep === "pago" && (
                   <div className="payment-stage">
                     <div className="payment-options">
-                      {["Mercado Pago", "Webpay", "Transferencia", "Saldo Bazar"].map((method) => (
+                      {["Getnet", "Transferencia", "Saldo Bazar", "Webpay"].map((method) => (
                         <button
                           type="button"
                           key={method}
@@ -1537,7 +1568,7 @@ export default function BazarApp() {
                 )}
                 {customerSection === "pagos" && (
                   <div className="customer-grid">
-                    <article><h2>Webpay</h2><span>Preparado para integracion</span><span>Validacion por webhook</span></article>
+                    <article><h2>Getnet</h2><span>Web Checkout API en pruebas</span><span>Retorno y notificacion configurados</span></article>
                     <article><h2>Mercado Pago</h2><span>Solo si servidor confirma pago</span><span>No se aceptan capturas</span></article>
                     <article><h2>Transferencia</h2><span>Riesgo medio</span><span>Requiere revision manual</span></article>
                   </div>
@@ -1955,7 +1986,7 @@ export default function BazarApp() {
                   <h2>Ruta septiembre</h2>
                   <ol>
                     <li>Crear orden pendiente antes de enviar a la pasarela.</li>
-                    <li>Crear sesion de pago con Mercado Pago o Webpay.</li>
+                    <li>Crear sesion de pago con Getnet Web Checkout.</li>
                     <li>Redirigir al cliente al checkout seguro.</li>
                     <li>Recibir webhook y marcar pedido aprobado o rechazado.</li>
                     <li>Conciliar comision Bazar y saldo del comercio.</li>

@@ -77,18 +77,18 @@ export const initialUsers: UserAccount[] = [
 
 export const paymentProviders: PaymentProvider[] = [
   {
-    name: "Webpay / Transbank",
-    status: "Candidato Chile",
-    use: "Pagos con tarjeta y transferencia local.",
+    name: "Getnet Web Checkout",
+    status: "Principal Chile",
+    use: "Pagos con tarjeta via checkout seguro redirigido.",
     settlement: "Liquidacion bancaria del comercio o cuenta Bazar.",
-    priority: "Etapa 2",
+    priority: "Etapa 1",
   },
   {
-    name: "Mercado Pago",
-    status: "Recomendado MVP",
-    use: "Checkout redirigido para cobrar rapido en septiembre.",
+    name: "Webpay / Transbank",
+    status: "Alternativa futura",
+    use: "Pagos con tarjeta y transferencia local.",
     settlement: "Bazar cobra y concilia pagos aprobados.",
-    priority: "Etapa 1",
+    priority: "Etapa 2",
   },
   {
     name: "Transferencia",
