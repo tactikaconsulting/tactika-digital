@@ -2,7 +2,7 @@ import type { PaymentProvider, Product, UserAccount } from "./types";
 
 export const products: Product[] = [
   {
-    id: 1,
+    id: "seed-1",
     name: "Canasta semanal hogar",
     store: "Almacen Central",
     category: "Almacen",
@@ -11,9 +11,10 @@ export const products: Product[] = [
     delivery: "Llega hoy",
     premier: 190,
     imageClass: "groceries",
+    stock: 18,
   },
   {
-    id: 2,
+    id: "seed-2",
     name: "Pack brunch local",
     store: "Cafe Barrio Norte",
     category: "Comida",
@@ -22,9 +23,10 @@ export const products: Product[] = [
     delivery: "Retiro o despacho",
     premier: 130,
     imageClass: "food",
+    stock: 7,
   },
   {
-    id: 3,
+    id: "seed-3",
     name: "Cable USB-C reforzado",
     store: "Tecno Express",
     category: "Tecnologia",
@@ -33,9 +35,10 @@ export const products: Product[] = [
     delivery: "Despacho 24 h",
     premier: 70,
     imageClass: "tech",
+    stock: 12,
   },
   {
-    id: 4,
+    id: "seed-4",
     name: "Kit cuidado personal",
     store: "Farmacia Local",
     category: "Farmacia",
@@ -44,6 +47,7 @@ export const products: Product[] = [
     delivery: "Despacho express",
     premier: 160,
     imageClass: "pharmacy",
+    stock: 5,
   },
 ];
 

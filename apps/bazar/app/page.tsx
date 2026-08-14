@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { money } from "./lib/format";
 import { databaseChecklist, databaseModules } from "./lib/database-plan";
-import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
+import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products as seedProducts } from "./lib/seed";
 import { getSupabaseClient, getSupabaseStatus, isSupabaseConfigured } from "./lib/supabase";
 import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
@@ -25,6 +25,65 @@ type AdSlot = {
   featured?: boolean;
 };
 
+type ProductDraft = {
+  name: string;
+  category: string;
+  price: string;
+  stock: string;
+  store: string;
+};
+
+type SupabaseProductRow = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  premier_points: number;
+  is_active: boolean;
+};
+
+function getCategoryImageClass(category: string) {
+  const normalized = category.toLowerCase();
+
+  if (normalized.includes("comida") || normalized.includes("cafe")) {
+    return "food";
+  }
+
+  if (normalized.includes("tecno")) {
+    return "tech";
+  }
+
+  if (normalized.includes("farmacia") || normalized.includes("salud")) {
+    return "pharmacy";
+  }
+
+  if (normalized.includes("almacen") || normalized.includes("super")) {
+    return "groceries";
+  }
+
+  return "image";
+}
+
+function mapSupabaseProduct(product: SupabaseProductRow, store = "Comercio verificado"): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    store,
+    category: product.category,
+    price: product.price,
+    tag: product.stock > 0 ? `${product.stock} disponibles` : "Sin stock",
+    delivery: "Despacho coordinado",
+    premier: product.premier_points || Math.max(1, Math.round(product.price / 100)),
+    imageClass: getCategoryImageClass(product.category),
+    stock: product.stock,
+  };
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
   const [adminSection, setAdminSection] = useState<"resumen" | "clientes" | "comercios" | "usuarios" | "ganancias" | "pagos" | "datos">("resumen");
@@ -35,6 +94,7 @@ export default function BazarApp() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<PaymentAttempt[]>([]);
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(seedProducts);
   const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
   const [adminCode, setAdminCode] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login");
@@ -69,12 +129,21 @@ export default function BazarApp() {
     email: "",
     role: "cliente" as UserRole,
   });
+  const [productDraft, setProductDraft] = useState<ProductDraft>({
+    name: "",
+    category: "Almacen",
+    price: "",
+    stock: "10",
+    store: "",
+  });
+  const [productSaving, setProductSaving] = useState(false);
+  const [productMessage, setProductMessage] = useState("");
 
   const filteredProducts = useMemo(() => {
     const value = query.trim().toLowerCase();
     const categoryFiltered = selectedCategory === "Todos"
-      ? products
-      : products.filter((product) => product.category === selectedCategory);
+      ? liveProducts
+      : liveProducts.filter((product) => product.category === selectedCategory);
 
     if (!value) {
       return categoryFiltered;
@@ -83,7 +152,7 @@ export default function BazarApp() {
     return categoryFiltered.filter((product) =>
       `${product.name} ${product.store} ${product.category}`.toLowerCase().includes(value),
     );
-  }, [query, selectedCategory]);
+  }, [liveProducts, query, selectedCategory]);
 
   const subtotal = useMemo(
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
@@ -102,7 +171,7 @@ export default function BazarApp() {
     (total, order) => total + order.commission,
     277000,
   );
-  const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
+  const categories = ["Todos", ...Array.from(new Set(liveProducts.map((product) => product.category)))];
   const supabaseConfigured = isSupabaseConfigured();
   const supabaseStatus = getSupabaseStatus();
   const clientUsers = users.filter((user) => user.role === "cliente");
@@ -176,6 +245,27 @@ export default function BazarApp() {
     }
   }, []);
 
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    supabase
+      .from("products")
+      .select("id,name,category,price,stock,premier_points,is_active")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error || !data?.length) {
+          return;
+        }
+
+        setLiveProducts(data.map((product) => mapSupabaseProduct(product as SupabaseProductRow)));
+      });
+  }, []);
+
   function addToCart(product: Product) {
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
@@ -193,7 +283,7 @@ export default function BazarApp() {
     setCheckoutStep("carrito");
   }
 
-  function removeFromCart(productId: number) {
+  function removeFromCart(productId: string) {
     setCart((current) => current.filter((item) => item.id !== productId));
   }
 
@@ -505,6 +595,153 @@ export default function BazarApp() {
       ...current,
     ]);
     setNewUser({ name: "", email: "", role: "cliente" });
+  }
+
+  async function ensureMerchantForActiveUser() {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      return null;
+    }
+
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData.user;
+
+    if (!authUser) {
+      throw new Error("Inicia sesion como comercio o administrador para publicar productos.");
+    }
+
+    const { data: merchant } = await supabase
+      .from("merchants")
+      .select("id,name")
+      .eq("owner_user_id", authUser.id)
+      .maybeSingle();
+
+    if (merchant) {
+      return merchant;
+    }
+
+    const merchantName = productDraft.store.trim() || activeUser?.name || "Tienda Bazar";
+    const merchantEmail = authUser.email ?? activeUser?.email ?? "contacto@bazar.local";
+    const { data: createdMerchant, error } = await supabase
+      .from("merchants")
+      .insert({
+        owner_user_id: authUser.id,
+        name: merchantName,
+        email: merchantEmail,
+        status: "activo",
+      })
+      .select("id,name")
+      .single();
+
+    if (error || !createdMerchant) {
+      throw new Error(error?.message ?? "No se pudo crear el comercio.");
+    }
+
+    return createdMerchant;
+  }
+
+  async function createMerchantProduct() {
+    const name = productDraft.name.trim();
+    const category = productDraft.category.trim() || "General";
+    const price = Number(productDraft.price);
+    const stock = Math.max(0, Number(productDraft.stock));
+
+    if (!name || !Number.isFinite(price) || price <= 0 || !Number.isFinite(stock)) {
+      setProductMessage("Completa nombre, precio valido y stock.");
+      return;
+    }
+
+    const localProduct: Product = {
+      id: `local-${Date.now()}`,
+      name,
+      store: productDraft.store.trim() || activeUser?.name || "Comercio Bazar",
+      category,
+      price: Math.round(price),
+      tag: stock > 0 ? `${stock} disponibles` : "Sin stock",
+      delivery: "Despacho coordinado",
+      premier: Math.max(1, Math.round(price / 100)),
+      imageClass: getCategoryImageClass(category),
+      stock,
+    };
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setLiveProducts((current) => [localProduct, ...current]);
+      setProductDraft({ name: "", category: "Almacen", price: "", stock: "10", store: "" });
+      setProductMessage("Producto publicado en esta vista. Cuando Supabase este activo quedara guardado real.");
+      return;
+    }
+
+    setProductSaving(true);
+    setProductMessage("");
+
+    try {
+      const merchant = await ensureMerchantForActiveUser();
+
+      if (!merchant) {
+        throw new Error("No hay conexion con Supabase.");
+      }
+
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          merchant_id: merchant.id,
+          name,
+          category,
+          price: Math.round(price),
+          stock,
+          premier_points: Math.max(1, Math.round(price / 100)),
+          is_active: true,
+        })
+        .select("id,name,category,price,stock,premier_points,is_active")
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message ?? "No se pudo publicar el producto.");
+      }
+
+      setLiveProducts((current) => [mapSupabaseProduct(data as SupabaseProductRow, merchant.name), ...current]);
+      setProductDraft({ name: "", category: "Almacen", price: "", stock: "10", store: "" });
+      setProductMessage("Producto publicado y visible en Comprar.");
+    } catch (error) {
+      setProductMessage(error instanceof Error ? error.message : "No se pudo publicar el producto.");
+    } finally {
+      setProductSaving(false);
+    }
+  }
+
+  async function updateProductStock(productId: string, stock: number) {
+    const cleanStock = Math.max(0, Number.isFinite(stock) ? Math.round(stock) : 0);
+
+    setLiveProducts((current) =>
+      current.map((product) =>
+        product.id === productId
+          ? {
+              ...product,
+              stock: cleanStock,
+              tag: cleanStock > 0 ? `${cleanStock} disponibles` : "Sin stock",
+            }
+          : product,
+      ),
+    );
+
+    const supabase = getSupabaseClient();
+
+    if (!supabase || !isUuid(productId)) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("products")
+      .update({ stock: cleanStock })
+      .eq("id", productId);
+
+    if (error) {
+      setProductMessage(error.message);
+    } else {
+      setProductMessage("Stock actualizado.");
+    }
   }
 
   return (
@@ -1089,7 +1326,7 @@ export default function BazarApp() {
                 <div className="cards">
                   <article><strong>{money.format(merchantSales)}</strong><span>Ventas comercio</span></article>
                   <article><strong>{String(177 + orders.length)}</strong><span>Pedidos recibidos</span></article>
-                  <article><strong>{products.length}</strong><span>Productos publicados</span></article>
+                  <article><strong>{liveProducts.length}</strong><span>Productos publicados</span></article>
                   <article><strong>{money.format(monthlyCommission)}</strong><span>Comision Bazar</span></article>
                 </div>
                 {merchantSection === "resumen" && (
@@ -1097,7 +1334,7 @@ export default function BazarApp() {
                     <div className="merchant-grid">
                       <div className="table-panel">
                         <h2>Catalogo activo</h2>
-                        {products.map((product) => (
+                        {liveProducts.map((product) => (
                           <article className="merchant-row" key={product.id}>
                             <div>
                               <strong>{product.name}</strong>
@@ -1120,10 +1357,17 @@ export default function BazarApp() {
                   </>
                 )}
                 {merchantSection === "productos" && (
-                  <MerchantProductPanel products={products} />
+                  <MerchantProductPanel
+                    products={liveProducts}
+                    draft={productDraft}
+                    saving={productSaving}
+                    message={productMessage}
+                    onDraftChange={setProductDraft}
+                    onSubmit={createMerchantProduct}
+                  />
                 )}
                 {merchantSection === "stock" && (
-                  <StockPanel products={products} />
+                  <StockPanel products={liveProducts} onStockChange={updateProductStock} />
                 )}
                 {merchantSection === "pedidos" && (
                   <OrderList orders={orders} />
@@ -1279,7 +1523,7 @@ export default function BazarApp() {
               <div className="cards">
                 <article><strong>{merchantUsers.length}</strong><span>Comercios registrados</span></article>
                 <article><strong>{pendingKyc}</strong><span>KYC pendiente</span></article>
-                <article><strong>{products.length}</strong><span>Productos publicados</span></article>
+                <article><strong>{liveProducts.length}</strong><span>Productos publicados</span></article>
                 <article><strong>{money.format(merchantSales)}</strong><span>Ventas comercio</span></article>
               </div>
               <div className="admin-control-layout">
@@ -1635,20 +1879,61 @@ function PremierPanel({ balance, onRedeem }: { balance: number; onRedeem: (point
   );
 }
 
-function MerchantProductPanel({ products }: { products: Product[] }) {
+function MerchantProductPanel({
+  products,
+  draft,
+  saving,
+  message,
+  onDraftChange,
+  onSubmit,
+}: {
+  products: Product[];
+  draft: ProductDraft;
+  saving: boolean;
+  message: string;
+  onDraftChange: Dispatch<SetStateAction<ProductDraft>>;
+  onSubmit: () => void;
+}) {
   return (
     <section className="merchant-product-panel">
       <div className="form-panel">
         <h2>Nuevo producto</h2>
-        <input placeholder="Nombre del producto" />
-        <input placeholder="Precio" />
-        <input placeholder="Categoria" />
-        <select defaultValue="activo">
+        <input
+          value={draft.name}
+          onChange={(event) => onDraftChange((current) => ({ ...current, name: event.target.value }))}
+          placeholder="Nombre del producto"
+        />
+        <input
+          value={draft.price}
+          onChange={(event) => onDraftChange((current) => ({ ...current, price: event.target.value }))}
+          placeholder="Precio"
+          inputMode="numeric"
+        />
+        <input
+          value={draft.category}
+          onChange={(event) => onDraftChange((current) => ({ ...current, category: event.target.value }))}
+          placeholder="Categoria"
+        />
+        <input
+          value={draft.stock}
+          onChange={(event) => onDraftChange((current) => ({ ...current, stock: event.target.value }))}
+          placeholder="Stock inicial"
+          inputMode="numeric"
+        />
+        <input
+          value={draft.store}
+          onChange={(event) => onDraftChange((current) => ({ ...current, store: event.target.value }))}
+          placeholder="Nombre de tienda"
+        />
+        <select value="activo" aria-label="Estado del producto" disabled>
           <option value="activo">Publicar activo</option>
-          <option value="borrador">Guardar borrador</option>
         </select>
-        <button type="button">Guardar producto</button>
-        <p>En el MVP queda como interfaz. Luego se guarda en Supabase y queda visible en Comprar.</p>
+        <button type="button" onClick={onSubmit} disabled={saving}>
+          {saving ? "Guardando..." : "Guardar producto"}
+        </button>
+        <p className="product-message">
+          {message || "Al guardar, el producto queda visible en Comprar y con stock editable."}
+        </p>
       </div>
       <div className="table-panel">
         <h2>Productos publicados</h2>
@@ -1659,7 +1944,7 @@ function MerchantProductPanel({ products }: { products: Product[] }) {
               <span>{product.store} · {product.category}</span>
             </div>
             <mark>Publicado</mark>
-            <strong>{money.format(product.price)}</strong>
+            <strong>{money.format(product.price)} · {product.stock ?? 0} u.</strong>
           </article>
         ))}
       </div>
@@ -1667,7 +1952,13 @@ function MerchantProductPanel({ products }: { products: Product[] }) {
   );
 }
 
-function StockPanel({ products }: { products: Product[] }) {
+function StockPanel({
+  products,
+  onStockChange,
+}: {
+  products: Product[];
+  onStockChange: (productId: string, stock: number) => void;
+}) {
   return (
     <section className="stock-panel">
       <div className="stock-head">
@@ -1676,19 +1967,29 @@ function StockPanel({ products }: { products: Product[] }) {
           <h2>Control de stock</h2>
           <span>Evita vender productos sin disponibilidad y ayuda a preparar pedidos.</span>
         </div>
-        <button type="button">Actualizar stock</button>
+        <button type="button">Stock en linea</button>
       </div>
       <div className="stock-grid">
-        {products.map((product, index) => (
+        {products.map((product) => {
+          const stock = product.stock ?? 0;
+
+          return (
           <article className="stock-card" key={product.id}>
             <div>
               <strong>{product.name}</strong>
               <span>{product.category}</span>
             </div>
-            <input defaultValue={index % 2 === 0 ? 18 : 7} aria-label={`Stock de ${product.name}`} />
-            <mark>{index % 2 === 0 ? "OK" : "Bajo"}</mark>
+            <input
+              value={stock}
+              min={0}
+              inputMode="numeric"
+              onChange={(event) => onStockChange(product.id, Number(event.target.value))}
+              aria-label={`Stock de ${product.name}`}
+            />
+            <mark>{stock <= 0 ? "Sin stock" : stock <= 5 ? "Bajo" : "OK"}</mark>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

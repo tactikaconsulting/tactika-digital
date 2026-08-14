@@ -268,6 +268,11 @@ create policy "merchants can read own merchant profile"
 on merchants for select
 using (auth.uid() = owner_user_id);
 
+create policy "commerce users can manage own merchant profile"
+on merchants for all
+using (auth.uid() = owner_user_id)
+with check (auth.uid() = owner_user_id);
+
 create policy "public can read active products"
 on products for select
 using (is_active = true);
@@ -276,6 +281,25 @@ create policy "admins can manage products"
 on products for all
 using (public.is_admin())
 with check (public.is_admin());
+
+create policy "commerce users can manage own products"
+on products for all
+using (
+  exists (
+    select 1
+    from merchants
+    where merchants.id = products.merchant_id
+      and merchants.owner_user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from merchants
+    where merchants.id = products.merchant_id
+      and merchants.owner_user_id = auth.uid()
+  )
+);
 
 create policy "public can read active ad packages"
 on ad_packages for select

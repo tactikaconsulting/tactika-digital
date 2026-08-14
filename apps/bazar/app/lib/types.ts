@@ -3,7 +3,7 @@ export type View = "comprar" | "ingresar" | "cuenta" | "vender" | "admin";
 export type UserRole = "cliente" | "comercio" | "admin";
 
 export type Product = {
-  id: number;
+  id: string;
   name: string;
   store: string;
   category: string;
@@ -12,6 +12,7 @@ export type Product = {
   delivery: string;
   premier: number;
   imageClass: string;
+  stock?: number;
 };
 
 export type CartItem = Product & { quantity: number };
