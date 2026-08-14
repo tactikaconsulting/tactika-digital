@@ -1681,6 +1681,14 @@ select {
   font-size: 0.9rem;
 }
 
+.order-row small {
+  display: block;
+  max-width: 680px;
+  margin-top: 8px;
+  color: #555555;
+  line-height: 1.35;
+}
+
 .order-row mark {
   display: inline-block;
   margin-top: 8px;

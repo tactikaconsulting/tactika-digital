@@ -44,6 +44,31 @@ type SupabaseProductRow = {
   is_active: boolean;
 };
 
+type RealOrderItem = {
+  product_id: string;
+  product_name: string;
+  merchant_id: string;
+  merchant_name: string;
+  category: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  commission_amount: number;
+};
+
+type RealOrderRow = {
+  order_id: string;
+  status: string;
+  total: number;
+  premier_points: number;
+  created_at: string;
+  payment_provider: string | null;
+  payment_status: string | null;
+  payment_amount: number | null;
+  payment_risk: "bajo" | "medio" | "alto" | null;
+  items: RealOrderItem[];
+};
+
 const LOCAL_PRODUCTS_KEY = "bazar-local-products";
 
 function getCategoryImageClass(category: string) {
@@ -123,6 +148,48 @@ function getProductSaveErrorMessage(error: unknown) {
   }
 
   return message;
+}
+
+function mapRealOrders(rows: RealOrderRow[]) {
+  const mappedOrders: Order[] = rows.map((row) => ({
+    id: row.order_id,
+    status: row.status.replaceAll("_", " "),
+    paymentStatus: (row.payment_status ?? "pendiente") as PaymentAttempt["status"],
+    paymentProvider: row.payment_provider ?? "Pago simulado",
+    total: row.total,
+    commission: row.items.reduce((total, item) => total + item.commission_amount, 0),
+    premier: row.premier_points,
+    items: row.items.map((item) => ({
+      id: item.product_id,
+      merchantId: item.merchant_id,
+      name: item.product_name,
+      store: item.merchant_name,
+      category: item.category,
+      price: item.unit_price,
+      tag: `${item.quantity} comprado`,
+      delivery: "Pedido real",
+      premier: Math.max(1, Math.round(item.unit_price / 100)),
+      imageClass: getCategoryImageClass(item.category),
+      quantity: item.quantity,
+    })),
+  }));
+  const mappedPayments: PaymentAttempt[] = rows.map((row) => ({
+    id: `PAY-${row.order_id.slice(0, 8)}`,
+    orderId: row.order_id,
+    provider: row.payment_provider ?? "Pago simulado",
+    status: (row.payment_status ?? "pendiente") as PaymentAttempt["status"],
+    amount: row.payment_amount ?? row.total,
+    createdAt: new Date(row.created_at).toLocaleDateString("es-CL"),
+    reference: `SUPABASE-${row.order_id.slice(0, 8)}`,
+    riskLevel: row.payment_risk ?? "medio",
+    checks: [
+      "Pedido guardado en Supabase",
+      "Lineas de pedido registradas",
+      "Stock descontado por funcion segura",
+    ],
+  }));
+
+  return { mappedOrders, mappedPayments };
 }
 
 export default function BazarApp() {
@@ -322,6 +389,14 @@ export default function BazarApp() {
       });
   }, []);
 
+  useEffect(() => {
+    if (!activeUser) {
+      return;
+    }
+
+    void loadRealOrders();
+  }, [activeUser?.id]);
+
   function addToCart(product: Product) {
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
@@ -341,6 +416,24 @@ export default function BazarApp() {
 
   function removeFromCart(productId: string) {
     setCart((current) => current.filter((item) => item.id !== productId));
+  }
+
+  async function loadRealOrders() {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("list_bazar_orders");
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      return;
+    }
+
+    const { mappedOrders, mappedPayments } = mapRealOrders(data as RealOrderRow[]);
+    setOrders(mappedOrders);
+    setPayments(mappedPayments);
   }
 
   async function confirmOrder() {
@@ -407,6 +500,7 @@ export default function BazarApp() {
         payment.orderId = order.id;
         payment.reference = `SUPABASE-${String(order.id).slice(0, 8)}`;
         setOrderMessage("Pedido guardado real en Supabase.");
+        void loadRealOrders();
       } catch (error) {
         setOrderMessage(
           error instanceof Error
@@ -2176,7 +2270,7 @@ function OrderList({ orders }: { orders: Order[] }) {
     return (
       <div className="order-panel">
         <h2>Pedidos recientes</h2>
-        <p>Aun no hay pedidos simulados. Agrega productos y confirma una compra.</p>
+        <p>Aun no hay pedidos. Agrega productos y confirma una compra.</p>
       </div>
     );
   }
@@ -2190,6 +2284,9 @@ function OrderList({ orders }: { orders: Order[] }) {
             <strong>{order.id}</strong>
             <span>{order.items.length} productos · {order.status}</span>
             <mark>{order.paymentProvider} · {order.paymentStatus}</mark>
+            <small>
+              {order.items.map((item) => `${item.quantity} x ${item.name} (${item.store})`).join(" · ")}
+            </small>
           </div>
           <div>
             <strong>{money.format(order.total)}</strong>
