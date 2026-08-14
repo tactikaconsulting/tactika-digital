@@ -358,6 +358,21 @@ export default function BazarApp() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const webpayStatus = params.get("webpay_status");
+    const webpayMessage = params.get("webpay_message");
+
+    if (!webpayStatus) {
+      return;
+    }
+
+    setView("cuenta");
+    setCustomerSection("pagos");
+    setOrderMessage(webpayMessage ?? "Respuesta Webpay recibida.");
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  useEffect(() => {
     const storedProducts = getLocalProducts();
 
     if (storedProducts.length === 0) {
@@ -438,6 +453,39 @@ export default function BazarApp() {
     setPayments(mappedPayments);
   }
 
+  async function redirectToWebpay(orderId: string, amount: number) {
+    const response = await fetch("/api/payments/webpay/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ orderId, amount }),
+    });
+
+    const data = await response.json() as {
+      token?: string;
+      url?: string;
+      error?: string;
+    };
+
+    if (!response.ok || !data.token || !data.url) {
+      throw new Error(data.error ?? "No se pudo iniciar Webpay.");
+    }
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = data.url;
+
+    const tokenInput = document.createElement("input");
+    tokenInput.type = "hidden";
+    tokenInput.name = "token_ws";
+    tokenInput.value = data.token;
+    form.appendChild(tokenInput);
+
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   async function confirmOrder() {
     if (cart.length === 0) {
       return;
@@ -501,8 +549,17 @@ export default function BazarApp() {
         order.id = typeof orderId === "string" ? orderId : order.id;
         payment.orderId = order.id;
         payment.reference = `SUPABASE-${String(order.id).slice(0, 8)}`;
-        setOrderMessage("Pedido guardado real en Supabase.");
+        setOrderMessage(
+          paymentMethod === "Webpay"
+            ? "Pedido creado. Redirigiendo a Webpay..."
+            : "Pedido guardado real en Supabase.",
+        );
         void loadRealOrders();
+
+        if (paymentMethod === "Webpay") {
+          await redirectToWebpay(order.id, orderTotal);
+          return;
+        }
       } catch (error) {
         setOrderMessage(
           error instanceof Error
