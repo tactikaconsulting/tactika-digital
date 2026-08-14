@@ -30,11 +30,25 @@ npm install
 npm run dev:bazar
 ```
 
+## Base de datos
+
+El esquema inicial esta en:
+
+```text
+apps/bazar/db/schema.sql
+```
+
+La app esta preparada para Postgres usando Neon o Supabase. La variable requerida sera:
+
+```text
+DATABASE_URL
+```
+
 ## Proximas prioridades
 
-1. Carrito y pedido funcional.
-2. Panel comercio para productos, stock y pedidos.
-3. Admin para usuarios, comercios, comisiones y publicidad.
-4. Login y roles.
-5. Base de datos.
-6. Pagos, comisiones y Premier.
+1. Crear base Postgres en Neon o Supabase.
+2. Conectar login real a usuarios y roles.
+3. Guardar comercios, productos, pedidos y pagos en la base.
+4. Conectar webhook real de pagos.
+5. Panel comercio para productos, stock y pedidos reales.
+6. Admin para usuarios, comercios, comisiones, pagos y seguridad.

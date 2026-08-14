@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { money } from "./lib/format";
+import { databaseChecklist, databaseModules } from "./lib/database-plan";
 import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
 import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
-  const [adminSection, setAdminSection] = useState<"resumen" | "usuarios" | "pagos">("resumen");
+  const [adminSection, setAdminSection] = useState<"resumen" | "usuarios" | "pagos" | "datos">("resumen");
   const [checkoutStep, setCheckoutStep] = useState<"carrito" | "entrega" | "pago">("carrito");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -695,6 +696,13 @@ export default function BazarApp() {
             >
               Pagos e ingresos
             </button>
+            <button
+              type="button"
+              className={adminSection === "datos" ? "active" : ""}
+              onClick={() => setAdminSection("datos")}
+            >
+              Base de datos
+            </button>
           </div>
 
           {adminSection === "resumen" && (
@@ -821,6 +829,37 @@ export default function BazarApp() {
               <div className="revenue-plan">
                 <h2>Fuentes de ingreso</h2>
                 <p>Comision por venta, tiendas destacadas, productos patrocinados, planes Pro para comercios y fee de despacho.</p>
+              </div>
+            </>
+          )}
+
+          {adminSection === "datos" && (
+            <>
+              <div className="cards">
+                <article><strong>Postgres</strong><span>Motor recomendado</span></article>
+                <article><strong>7</strong><span>Modulos de datos</span></article>
+                <article><strong>SQL listo</strong><span>apps/bazar/db/schema.sql</span></article>
+                <article><strong>DATABASE_URL</strong><span>Variable requerida</span></article>
+              </div>
+              <div className="database-layout">
+                <div className="table-panel">
+                  <h2>Modelo preparado</h2>
+                  {databaseModules.map((module) => (
+                    <article className="database-row" key={module.table}>
+                      <div>
+                        <strong>{module.name}</strong>
+                        <span>{module.table}</span>
+                      </div>
+                      <p>{module.purpose}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="database-card">
+                  <h2>Para conectar en Vercel</h2>
+                  {databaseChecklist.map((item) => (
+                    <span key={item}>{item}</span>
+                  ))}
+                </div>
               </div>
             </>
           )}
