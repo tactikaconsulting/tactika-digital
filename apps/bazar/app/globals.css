@@ -1003,6 +1003,31 @@ select {
   margin-top: 16px;
 }
 
+.finance-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.finance-summary article {
+  display: grid;
+  gap: 8px;
+  border-radius: 8px;
+  background: #101828;
+  color: #ffffff;
+  padding: 16px;
+}
+
+.finance-summary span {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 850;
+}
+
+.finance-summary strong {
+  font-size: 1.25rem;
+}
+
 .merchant-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 90px auto;
@@ -1545,6 +1570,11 @@ select {
   font-weight: 900;
 }
 
+.payment-row mark.warning {
+  background: #fff3cd;
+  color: #8a5d00;
+}
+
 .payment-row ul {
   grid-column: 1 / -1;
   display: grid;
@@ -1721,7 +1751,8 @@ select {
   .verification-status,
   .premier-head,
   .stock-head,
-  .alliance-admin {
+  .alliance-admin,
+  .finance-summary {
     grid-template-columns: 1fr;
   }
 

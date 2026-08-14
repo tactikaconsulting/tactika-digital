@@ -277,17 +277,19 @@ export default function BazarApp() {
   const serviceFee = subtotal > 0 ? 690 : 0;
   const orderTotal = subtotal + deliveryFee + serviceFee;
   const suspiciousPayments = payments.filter((payment) => payment.status === "revision" || payment.riskLevel !== "bajo");
-  const monthlyCommission = orders.reduce(
-    (total, order) => total + order.commission,
-    277000,
-  );
+  const approvedPayments = payments.filter((payment) => payment.status === "aprobado");
+  const grossSales = approvedPayments.reduce((total, payment) => total + payment.amount, 0);
+  const monthlyCommission = orders.reduce((total, order) => total + order.commission, 0);
+  const serviceFeeRevenue = orders.length * 690;
+  const adRevenue = 480000;
   const categories = ["Todos", ...Array.from(new Set(liveProducts.map((product) => product.category)))];
   const supabaseConfigured = isSupabaseConfigured();
   const supabaseStatus = getSupabaseStatus();
   const clientUsers = users.filter((user) => user.role === "cliente");
   const merchantUsers = users.filter((user) => user.role === "comercio");
-  const bazarRevenue = payments.reduce((total, payment) => total + payment.amount, 0) + 480000;
-  const merchantSales = orders.reduce((total, order) => total + order.total - order.commission, 2770000);
+  const bazarRevenue = monthlyCommission + serviceFeeRevenue + adRevenue;
+  const merchantSales = orders.reduce((total, order) => total + order.total - order.commission, 0);
+  const netMerchantBalance = Math.max(0, grossSales - monthlyCommission - serviceFeeRevenue);
   const pendingKyc = merchantUsers.filter((user) => user.status.toLowerCase().includes("pendiente")).length;
   const premierBalance = 1840 + orders.reduce((total, order) => total + order.premier, 0) - redeemedPremier;
   const adSlots: AdSlot[] = [
@@ -1592,24 +1594,24 @@ export default function BazarApp() {
                   <OrderList orders={orders} />
                 )}
                 {merchantSection === "pagos" && (
-                  <div className="merchant-grid">
-                    <div className="table-panel">
-                      <h2>Pagos comercio</h2>
-                      {payments.length === 0 ? <p>No hay pagos conciliados.</p> : payments.map((payment) => (
-                        <article className="payment-row" key={payment.id}>
-                          <div><strong>{payment.id}</strong><span>{payment.provider}</span></div>
-                          <mark>{payment.status}</mark>
-                          <strong>{money.format(payment.amount)}</strong>
-                        </article>
-                      ))}
+                  <>
+                    <FinanceSummary
+                      grossSales={grossSales}
+                      commission={monthlyCommission}
+                      serviceFees={serviceFeeRevenue}
+                      merchantBalance={netMerchantBalance}
+                      bazarRevenue={bazarRevenue}
+                    />
+                    <div className="merchant-grid">
+                      <PaymentTable payments={payments} />
+                      <div className="merchant-side">
+                        <h2>Reglas de pago</h2>
+                        <span>Saldo comercio despues de comision</span>
+                        <span>Pagos sospechosos quedan retenidos</span>
+                        <span>Transferencia requiere conciliacion</span>
+                      </div>
                     </div>
-                    <div className="merchant-side">
-                      <h2>Reglas de pago</h2>
-                      <span>Saldo comercio despues de comision</span>
-                      <span>Pagos sospechosos quedan retenidos</span>
-                      <span>Transferencia requiere conciliacion</span>
-                    </div>
-                  </div>
+                  </>
                 )}
                 {merchantSection === "verificacion" && (
                   <KycPanel
@@ -1708,7 +1710,7 @@ export default function BazarApp() {
             <>
               <div className="cards">
                 <article><strong>{money.format(monthlyCommission)}</strong><span>Comision acumulada</span></article>
-                <article><strong>$480.000</strong><span>Publicidad destacada</span></article>
+                <article><strong>{money.format(adRevenue)}</strong><span>Publicidad destacada</span></article>
                 <article><strong>126</strong><span>Comercios activos</span></article>
                 <article><strong>{3 + orders.length}</strong><span>Pedidos por revisar</span></article>
               </div>
@@ -1762,10 +1764,17 @@ export default function BazarApp() {
             <>
               <div className="cards">
                 <article><strong>{money.format(monthlyCommission)}</strong><span>Comisiones Bazar</span></article>
-                <article><strong>$480.000</strong><span>Publicidad</span></article>
+                <article><strong>{money.format(adRevenue)}</strong><span>Publicidad</span></article>
                 <article><strong>{money.format(bazarRevenue)}</strong><span>Ingreso bruto estimado</span></article>
-                <article><strong>{money.format(merchantSales)}</strong><span>Saldo comercios</span></article>
+                <article><strong>{money.format(netMerchantBalance)}</strong><span>Saldo comercios</span></article>
               </div>
+              <FinanceSummary
+                grossSales={grossSales}
+                commission={monthlyCommission}
+                serviceFees={serviceFeeRevenue}
+                merchantBalance={netMerchantBalance}
+                bazarRevenue={bazarRevenue}
+              />
               <div className="revenue-dashboard">
                 <article>
                   <h2>Modelo de ingreso</h2>
@@ -1850,6 +1859,13 @@ export default function BazarApp() {
                 <article><strong>{payments.length}</strong><span>Pagos simulados</span></article>
                 <article><strong>{suspiciousPayments.length}</strong><span>Pagos en revision</span></article>
               </div>
+              <FinanceSummary
+                grossSales={grossSales}
+                commission={monthlyCommission}
+                serviceFees={serviceFeeRevenue}
+                merchantBalance={netMerchantBalance}
+                bazarRevenue={bazarRevenue}
+              />
               <div className="security-grid">
                 <div className="security-card">
                   <h2>Reglas antifraude</h2>
@@ -1877,29 +1893,7 @@ export default function BazarApp() {
                 ))}
               </div>
               <div className="payments-layout">
-                <div className="table-panel">
-                  <h2>Transacciones</h2>
-                  {payments.length === 0 ? (
-                    <p>Aun no hay pagos. Simula una compra desde Comprar para ver el registro.</p>
-                  ) : (
-                    payments.map((payment) => (
-                      <article className="payment-row" key={payment.id}>
-                        <div>
-                          <strong>{payment.id}</strong>
-                          <span>{payment.orderId} · {payment.provider}</span>
-                          <small>{payment.reference} · Riesgo {payment.riskLevel}</small>
-                        </div>
-                        <mark>{payment.status}</mark>
-                        <strong>{money.format(payment.amount)}</strong>
-                        <ul>
-                          {payment.checks.map((check) => (
-                            <li key={check}>{check}</li>
-                          ))}
-                        </ul>
-                      </article>
-                    ))
-                  )}
-                </div>
+                <PaymentTable payments={payments} />
                 <div className="payment-blueprint">
                   <h2>Ruta septiembre</h2>
                   <ol>
@@ -2228,6 +2222,69 @@ function UserTable({ users, title = "Usuarios registrados" }: { users: UserAccou
           <mark>{user.status}</mark>
         </article>
       ))}
+    </div>
+  );
+}
+
+function FinanceSummary({
+  grossSales,
+  commission,
+  serviceFees,
+  merchantBalance,
+  bazarRevenue,
+}: {
+  grossSales: number;
+  commission: number;
+  serviceFees: number;
+  merchantBalance: number;
+  bazarRevenue: number;
+}) {
+  const items = [
+    ["Ventas aprobadas", money.format(grossSales)],
+    ["Comision Bazar", money.format(commission)],
+    ["Fee servicio", money.format(serviceFees)],
+    ["Saldo comercio", money.format(merchantBalance)],
+    ["Ingreso Bazar", money.format(bazarRevenue)],
+  ];
+
+  return (
+    <section className="finance-summary" aria-label="Resumen financiero">
+      {items.map(([label, value]) => (
+        <article key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function PaymentTable({ payments }: { payments: PaymentAttempt[] }) {
+  return (
+    <div className="table-panel">
+      <h2>Transacciones</h2>
+      {payments.length === 0 ? (
+        <p>Aun no hay pagos. Simula una compra desde Comprar para ver el registro.</p>
+      ) : (
+        payments.map((payment) => (
+          <article className="payment-row" key={payment.id}>
+            <div>
+              <strong>{payment.id}</strong>
+              <span>{payment.orderId} · {payment.provider}</span>
+              <small>{payment.reference} · Riesgo {payment.riskLevel}</small>
+            </div>
+            <mark className={payment.status === "revision" || payment.riskLevel !== "bajo" ? "warning" : ""}>
+              {payment.status}
+            </mark>
+            <strong>{money.format(payment.amount)}</strong>
+            <ul>
+              {payment.checks.map((check) => (
+                <li key={check}>{check}</li>
+              ))}
+            </ul>
+          </article>
+        ))
+      )}
     </div>
   );
 }
