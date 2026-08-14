@@ -592,11 +592,29 @@ export default function BazarApp() {
           return;
         }
       } catch (error) {
-        setOrderMessage(
-          error instanceof Error
-            ? `${error.message}. El pedido quedo solo como simulacion en esta sesion.`
-            : "El pedido quedo solo como simulacion en esta sesion.",
-        );
+        const orderErrorMessage = error instanceof Error
+          ? error.message
+          : "El pedido quedo solo como simulacion en esta sesion.";
+
+        if (paymentMethod === "Getnet") {
+          try {
+            setOrderMessage(`${orderErrorMessage}. Abriendo Getnet como pago de prueba...`);
+            await redirectToGetnet(order.id, orderTotal);
+            return;
+          } catch (paymentError) {
+            setOrderMessage(
+              `${orderErrorMessage}. Ademas Getnet respondio: ${
+                paymentError instanceof Error ? paymentError.message : "no se pudo iniciar el checkout."
+              }`,
+            );
+          }
+        } else {
+          setOrderMessage(
+            error instanceof Error
+              ? `${error.message}. El pedido quedo solo como simulacion en esta sesion.`
+              : "El pedido quedo solo como simulacion en esta sesion.",
+          );
+        }
       } finally {
         setOrderSaving(false);
       }
