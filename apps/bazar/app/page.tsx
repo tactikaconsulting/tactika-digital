@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import { money } from "./lib/format";
 import { databaseChecklist, databaseModules } from "./lib/database-plan";
 import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
-import { getSupabaseClient, isSupabaseConfigured } from "./lib/supabase";
+import { getSupabaseClient, getSupabaseStatus, isSupabaseConfigured } from "./lib/supabase";
 import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, View } from "./lib/types";
 
 type KycDraft = {
@@ -104,6 +104,7 @@ export default function BazarApp() {
   );
   const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
   const supabaseConfigured = isSupabaseConfigured();
+  const supabaseStatus = getSupabaseStatus();
   const clientUsers = users.filter((user) => user.role === "cliente");
   const merchantUsers = users.filter((user) => user.role === "comercio");
   const bazarRevenue = payments.reduce((total, payment) => total + payment.amount, 0) + 480000;
@@ -770,7 +771,10 @@ export default function BazarApp() {
               y administradores gestionan la plataforma.
             </span>
             <span className="connection-state">
-              {supabaseConfigured ? "Supabase configurado: ingreso real activo." : "Modo demo: agrega variables de Supabase en Vercel para activar ingreso real."}
+              {supabaseStatus.message}
+            </span>
+            <span className="connection-state debug-state">
+              Host Supabase: {supabaseStatus.host}
             </span>
           </div>
 

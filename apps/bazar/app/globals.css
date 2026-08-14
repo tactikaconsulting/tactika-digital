@@ -819,6 +819,11 @@ select {
   font-weight: 900;
 }
 
+.section-title .debug-state {
+  background: #eef5ff;
+  color: var(--blue);
+}
+
 .back-link {
   min-height: 40px;
   margin-top: 18px;
