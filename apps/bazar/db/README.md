@@ -36,6 +36,23 @@ En Supabase se hace en:
 SQL Editor > New query
 ```
 
+## Activar pedidos reales
+
+Si al comprar aparece un error parecido a:
+
+```text
+Could not find the function public.place_bazar_order(...) in the schema cache
+```
+
+ejecutar completo:
+
+```text
+apps/bazar/db/runtime_order_setup.sql
+```
+
+Ese archivo instala las funciones reales de pedidos, pagos, Premier, descuento de stock
+y fuerza la recarga del cache de Supabase/PostgREST.
+
 Las claves publicas se obtienen en:
 
 ```text
