@@ -9,7 +9,7 @@ import type { CartItem, Order, PaymentAttempt, Product, UserAccount, UserRole, V
 
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
-  const [adminSection, setAdminSection] = useState<"resumen" | "usuarios" | "pagos" | "datos">("resumen");
+  const [adminSection, setAdminSection] = useState<"resumen" | "clientes" | "comercios" | "usuarios" | "ganancias" | "pagos" | "datos">("resumen");
   const [checkoutStep, setCheckoutStep] = useState<"carrito" | "entrega" | "pago">("carrito");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -70,6 +70,11 @@ export default function BazarApp() {
   );
   const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
   const supabaseConfigured = isSupabaseConfigured();
+  const clientUsers = users.filter((user) => user.role === "cliente");
+  const merchantUsers = users.filter((user) => user.role === "comercio");
+  const bazarRevenue = payments.reduce((total, payment) => total + payment.amount, 0) + 480000;
+  const merchantSales = orders.reduce((total, order) => total + order.total - order.commission, 2770000);
+  const pendingKyc = merchantUsers.filter((user) => user.status.toLowerCase().includes("pendiente")).length;
 
   function addToCart(product: Product) {
     setCart((current) => {
@@ -681,14 +686,36 @@ export default function BazarApp() {
                     </article>
                   ))}
                 </div>
+                <div className="customer-grid">
+                  <article>
+                    <h2>Resumen cliente</h2>
+                    <span>Cuenta: {activeUser.email}</span>
+                    <span>Rol: {activeUser.role}</span>
+                    <span>Estado: {activeUser.status}</span>
+                  </article>
+                  <article>
+                    <h2>Beneficios Premier</h2>
+                    <strong>{1840 + orders.reduce((total, order) => total + order.premier, 0)} pts</strong>
+                    <span>Los puntos se acumulan por compras aprobadas.</span>
+                  </article>
+                  <article>
+                    <h2>Medios de pago</h2>
+                    <span>Webpay preparado</span>
+                    <span>Mercado Pago con validacion servidor</span>
+                    <span>Transferencia en revision manual</span>
+                  </article>
+                </div>
                 <OrderList orders={orders} />
               </section>
 
               <aside className="account-panel">
-                <h2>Accesos de mi cuenta</h2>
+                <h2>Cuenta cliente</h2>
                 <button type="button" className="active">
-                  Perfil cliente
+                  Mis compras
                 </button>
+                <button type="button">Direcciones</button>
+                <button type="button">Premier</button>
+                <button type="button">Pagos</button>
                 <button type="button" onClick={() => setView("ingresar")}>
                   Cambiar usuario
                 </button>
@@ -698,7 +725,7 @@ export default function BazarApp() {
                   </button>
                 )}
                 <p>
-                  El cliente compra y revisa pedidos. Comercio y admin tienen paneles separados.
+                  El cliente compra, revisa pedidos, gestiona pagos y acumula Premier.
                 </p>
               </aside>
             </div>
@@ -710,18 +737,56 @@ export default function BazarApp() {
 
       {view === "vender" && (
         activeUser?.role === "comercio" || activeUser?.role === "admin" ? (
-          <Dashboard
-            label="Comercio"
-            title="Panel comercio"
-            subtitle="Espacio separado para que cada negocio publique productos, controle stock, revise ventas y gestione pedidos."
-            metrics={[
-              ["$2.770.000", "Ventas mes"],
-              [String(177 + orders.length), "Pedidos"],
-              ["24", "Productos activos"],
-              [money.format(monthlyCommission), "Comision Bazar"],
-            ]}
-            orders={orders}
-          />
+          <section className="dashboard merchant-dashboard">
+            <div className="section-title">
+              <p>Comercio</p>
+              <h1>Panel comercio</h1>
+              <span>
+                Operacion diaria del negocio: catalogo, stock, pedidos, ventas y comision Bazar.
+              </span>
+            </div>
+            <div className="merchant-layout">
+              <aside className="merchant-menu">
+                <h2>Mi tienda</h2>
+                <button type="button" className="active">Resumen</button>
+                <button type="button">Productos</button>
+                <button type="button">Stock</button>
+                <button type="button">Pedidos</button>
+                <button type="button">Pagos</button>
+              </aside>
+              <section className="merchant-main">
+                <div className="cards">
+                  <article><strong>{money.format(merchantSales)}</strong><span>Ventas comercio</span></article>
+                  <article><strong>{String(177 + orders.length)}</strong><span>Pedidos recibidos</span></article>
+                  <article><strong>{products.length}</strong><span>Productos publicados</span></article>
+                  <article><strong>{money.format(monthlyCommission)}</strong><span>Comision Bazar</span></article>
+                </div>
+                <div className="merchant-grid">
+                  <div className="table-panel">
+                    <h2>Catalogo activo</h2>
+                    {products.map((product) => (
+                      <article className="merchant-row" key={product.id}>
+                        <div>
+                          <strong>{product.name}</strong>
+                          <span>{product.category} · {product.store}</span>
+                        </div>
+                        <mark>Activo</mark>
+                        <strong>{money.format(product.price)}</strong>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="merchant-side">
+                    <h2>Operacion</h2>
+                    <span>Preparar pedidos pagados</span>
+                    <span>Actualizar stock antes de vender</span>
+                    <span>Revisar pagos en conciliacion</span>
+                    <span>Solicitar destaque o plan Pro</span>
+                  </div>
+                </div>
+                <OrderList orders={orders} />
+              </section>
+            </div>
+          </section>
         ) : (
           <section className="dashboard">
             <div className="section-title">
@@ -769,6 +834,27 @@ export default function BazarApp() {
             </button>
             <button
               type="button"
+              className={adminSection === "clientes" ? "active" : ""}
+              onClick={() => setAdminSection("clientes")}
+            >
+              Clientes
+            </button>
+            <button
+              type="button"
+              className={adminSection === "comercios" ? "active" : ""}
+              onClick={() => setAdminSection("comercios")}
+            >
+              Comercios
+            </button>
+            <button
+              type="button"
+              className={adminSection === "ganancias" ? "active" : ""}
+              onClick={() => setAdminSection("ganancias")}
+            >
+              Ganancias
+            </button>
+            <button
+              type="button"
               className={adminSection === "pagos" ? "active" : ""}
               onClick={() => setAdminSection("pagos")}
             >
@@ -792,6 +878,75 @@ export default function BazarApp() {
                 <article><strong>{3 + orders.length}</strong><span>Pedidos por revisar</span></article>
               </div>
               <OrderList orders={orders} />
+            </>
+          )}
+
+          {adminSection === "clientes" && (
+            <>
+              <div className="cards">
+                <article><strong>{clientUsers.length}</strong><span>Clientes registrados</span></article>
+                <article><strong>{12 + orders.length}</strong><span>Compras totales</span></article>
+                <article><strong>{1840 + premier}</strong><span>Premier emitido</span></article>
+                <article><strong>{money.format(orderTotal)}</strong><span>Ticket simulado</span></article>
+              </div>
+              <div className="admin-control-layout">
+                <UserTable users={clientUsers} title="Control de clientes" />
+                <div className="admin-control-card">
+                  <h2>Acciones cliente</h2>
+                  <span>Revisar historial de compra</span>
+                  <span>Bloquear cuenta sospechosa</span>
+                  <span>Gestionar puntos Premier</span>
+                  <span>Atender reclamos y devoluciones</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {adminSection === "comercios" && (
+            <>
+              <div className="cards">
+                <article><strong>{merchantUsers.length}</strong><span>Comercios registrados</span></article>
+                <article><strong>{pendingKyc}</strong><span>KYC pendiente</span></article>
+                <article><strong>{products.length}</strong><span>Productos publicados</span></article>
+                <article><strong>{money.format(merchantSales)}</strong><span>Ventas comercio</span></article>
+              </div>
+              <div className="admin-control-layout">
+                <UserTable users={merchantUsers} title="Control de comercios" />
+                <div className="admin-control-card">
+                  <h2>Acciones comercio</h2>
+                  <span>Aprobar o rechazar KYC</span>
+                  <span>Revisar catalogo y stock</span>
+                  <span>Configurar comision</span>
+                  <span>Activar tienda destacada</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {adminSection === "ganancias" && (
+            <>
+              <div className="cards">
+                <article><strong>{money.format(monthlyCommission)}</strong><span>Comisiones Bazar</span></article>
+                <article><strong>$480.000</strong><span>Publicidad</span></article>
+                <article><strong>{money.format(bazarRevenue)}</strong><span>Ingreso bruto estimado</span></article>
+                <article><strong>{money.format(merchantSales)}</strong><span>Saldo comercios</span></article>
+              </div>
+              <div className="revenue-dashboard">
+                <article>
+                  <h2>Modelo de ingreso</h2>
+                  <span>Comision por venta: 10%</span>
+                  <span>Productos destacados: {money.format(businessRules.sponsoredProductsMonthlyFee)}</span>
+                  <span>Plan comercio Pro: {money.format(businessRules.merchantProMonthlyFee)}</span>
+                  <span>Fee de servicio: {money.format(serviceFee)} por pedido simulado</span>
+                </article>
+                <article>
+                  <h2>Control financiero</h2>
+                  <span>Conciliar pagos aprobados</span>
+                  <span>Separar comision Bazar</span>
+                  <span>Calcular saldo a comercio</span>
+                  <span>Enviar a revision pagos sospechosos</span>
+                </article>
+              </div>
             </>
           )}
 
@@ -972,10 +1127,10 @@ function EmptyAccess({ onSignIn }: { onSignIn: () => void }) {
   );
 }
 
-function UserTable({ users }: { users: UserAccount[] }) {
+function UserTable({ users, title = "Usuarios registrados" }: { users: UserAccount[]; title?: string }) {
   return (
     <div className="table-panel">
-      <h2>Usuarios registrados</h2>
+      <h2>{title}</h2>
       {users.map((user) => (
         <article className="table-row" key={user.id}>
           <div>
