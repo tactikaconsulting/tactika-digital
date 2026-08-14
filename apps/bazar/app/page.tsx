@@ -46,9 +46,11 @@ export default function BazarApp() {
   const [paymentMethod, setPaymentMethod] = useState("Webpay");
   const [shippingAddress, setShippingAddress] = useState("Av. Principal 123, Santiago");
   const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [accountDraft, setAccountDraft] = useState({
     name: "",
     email: "",
+    password: "",
     role: "cliente" as Exclude<UserRole, "admin">,
   });
   const [kycDraft, setKycDraft] = useState<KycDraft>({
@@ -263,8 +265,8 @@ export default function BazarApp() {
   async function submitLogin() {
     const email = loginEmail.trim().toLowerCase();
 
-    if (!email) {
-      setAuthMessage("Ingresa tu correo para continuar.");
+    if (!email || !loginPassword.trim()) {
+      setAuthMessage("Ingresa tu correo y clave para continuar.");
       return;
     }
 
@@ -274,12 +276,12 @@ export default function BazarApp() {
       setAuthLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password: "bazar-mvp-password",
+        password: loginPassword,
       });
       setAuthLoading(false);
 
       if (error || !data.user) {
-        setAuthMessage("No pudimos iniciar sesion en Supabase. Revisa correo, clave o confirmacion.");
+        setAuthMessage(error?.message ?? "No pudimos iniciar sesion en Supabase. Revisa correo, clave o confirmacion.");
         return;
       }
 
@@ -313,8 +315,8 @@ export default function BazarApp() {
   }
 
   async function submitRegistration() {
-    if (!accountDraft.name.trim() || !accountDraft.email.trim()) {
-      setAuthMessage("Completa nombre y correo para crear la cuenta.");
+    if (!accountDraft.name.trim() || !accountDraft.email.trim() || accountDraft.password.length < 6) {
+      setAuthMessage("Completa nombre, correo y una clave de al menos 6 caracteres.");
       return;
     }
 
@@ -324,7 +326,7 @@ export default function BazarApp() {
       setAuthLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email: accountDraft.email.trim(),
-        password: "bazar-mvp-password",
+        password: accountDraft.password,
         options: {
           data: {
             name: accountDraft.name.trim(),
@@ -353,7 +355,8 @@ export default function BazarApp() {
       };
 
       setUsers((current) => [createdUser, ...current]);
-      setAccountDraft({ name: "", email: "", role: "cliente" });
+      setAccountDraft({ name: "", email: "", password: "", role: "cliente" });
+      setLoginPassword("");
       signInAs(createdUser);
       return;
     }
@@ -378,7 +381,8 @@ export default function BazarApp() {
     };
 
     setUsers((current) => [createdUser, ...current]);
-    setAccountDraft({ name: "", email: "", role: "cliente" });
+    setAccountDraft({ name: "", email: "", password: "", role: "cliente" });
+    setLoginPassword("");
     signInAs(createdUser);
   }
 
@@ -706,7 +710,12 @@ export default function BazarApp() {
                   </label>
                   <label>
                     Clave
-                    <input placeholder="Clave simulada para MVP" type="password" />
+                    <input
+                      value={loginPassword}
+                      onChange={(event) => setLoginPassword(event.target.value)}
+                      placeholder="Tu clave de Supabase"
+                      type="password"
+                    />
                   </label>
                   <button type="button" onClick={submitLogin} disabled={authLoading}>
                     {authLoading ? "Entrando..." : "Entrar a mi cuenta"}
@@ -733,6 +742,17 @@ export default function BazarApp() {
                       }
                       placeholder="tu@correo.cl"
                       type="email"
+                    />
+                  </label>
+                  <label>
+                    Clave
+                    <input
+                      value={accountDraft.password}
+                      onChange={(event) =>
+                        setAccountDraft((current) => ({ ...current, password: event.target.value }))
+                      }
+                      placeholder="Minimo 6 caracteres"
+                      type="password"
                     />
                   </label>
                   <label>
