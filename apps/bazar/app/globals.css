@@ -225,17 +225,54 @@ select {
   margin-top: 16px;
 }
 
+.ad-intro {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.ad-intro p,
+.ad-intro h2 {
+  margin: 0;
+}
+
+.ad-intro p {
+  color: var(--yellow);
+  font-weight: 950;
+}
+
+.ad-intro h2 {
+  max-width: 760px;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+}
+
+.ad-intro span {
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.45;
+}
+
 .ad-marketplace article {
   display: grid;
   gap: 8px;
   border-radius: 8px;
-  background: #fff7d6;
+  background: #ffffff;
   padding: 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
+.ad-marketplace article.featured {
+  border: 2px solid var(--yellow);
+  background: linear-gradient(180deg, #fff7d6, #ffffff);
+}
+
 .ad-marketplace span {
-  color: #665500;
+  color: var(--blue);
   font-size: 0.85rem;
   font-weight: 900;
 }
@@ -250,10 +287,105 @@ select {
   line-height: 1.4;
 }
 
+.ad-marketplace div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .ad-marketplace mark {
   justify-self: start;
   border-radius: 999px;
-  background: #ffffff;
+  background: #eef5ff;
+  color: var(--blue);
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.ad-marketplace small {
+  color: #333333;
+  font-weight: 850;
+}
+
+.ad-marketplace button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.ad-marketplace article.featured button {
+  background: #111827;
+}
+
+.alliance-admin {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.alliance-admin > div,
+.alliance-admin article {
+  display: grid;
+  gap: 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.alliance-admin > div {
+  background: #111827;
+  color: #ffffff;
+}
+
+.alliance-admin h2,
+.alliance-admin p {
+  margin: 0;
+}
+
+.alliance-admin > div p {
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.45;
+}
+
+.alliance-admin span {
+  color: var(--blue);
+  font-weight: 850;
+}
+
+.alliance-admin mark {
+  justify-self: start;
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: var(--green);
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.alliance-admin article p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.admin-gate small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.admin-gate p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.admin-gate mark {
+  border-radius: 999px;
+  background: #eef5ff;
   color: #333333;
   padding: 7px 10px;
   font-weight: 900;
@@ -1554,7 +1686,8 @@ select {
   .verification-form,
   .verification-status,
   .premier-head,
-  .stock-head {
+  .stock-head,
+  .alliance-admin {
     grid-template-columns: 1fr;
   }
 

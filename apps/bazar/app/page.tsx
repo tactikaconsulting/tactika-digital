@@ -15,6 +15,16 @@ type KycDraft = {
   selfiePhoto: string;
 };
 
+type AdSlot = {
+  name: string;
+  price: string;
+  description: string;
+  placement: string;
+  reach: string;
+  cta: string;
+  featured?: boolean;
+};
+
 export default function BazarApp() {
   const [view, setView] = useState<View>("comprar");
   const [adminSection, setAdminSection] = useState<"resumen" | "clientes" | "comercios" | "usuarios" | "ganancias" | "pagos" | "datos">("resumen");
@@ -96,10 +106,32 @@ export default function BazarApp() {
   const merchantSales = orders.reduce((total, order) => total + order.total - order.commission, 2770000);
   const pendingKyc = merchantUsers.filter((user) => user.status.toLowerCase().includes("pendiente")).length;
   const premierBalance = 1840 + orders.reduce((total, order) => total + order.premier, 0) - redeemedPremier;
-  const adSlots = [
-    ["Banner superior", "$120.000/mes", "Marca visible en la vitrina principal"],
-    ["Producto destacado", money.format(businessRules.sponsoredProductsMonthlyFee), "Prioridad en categoria"],
-    ["Comercio aliado", "$180.000/mes", "Bloque de tienda recomendada"],
+  const adSlots: AdSlot[] = [
+    {
+      name: "Marca principal",
+      price: "$250.000/mes",
+      description: "Presencia superior en la portada para bancos, telcos, seguros, supermercados o marcas locales.",
+      placement: "Home + categoria",
+      reach: "Alta visibilidad",
+      cta: "Reservar alianza",
+      featured: true,
+    },
+    {
+      name: "Producto destacado",
+      price: money.format(businessRules.sponsoredProductsMonthlyFee),
+      description: "Prioridad en vitrinas de categoria para comercios que quieren vender mas rapido.",
+      placement: "Listado comprar",
+      reach: "Conversion directa",
+      cta: "Destacar producto",
+    },
+    {
+      name: "Comercio aliado",
+      price: "$180.000/mes",
+      description: "Bloque especial para tiendas verificadas, promociones Premier y beneficios exclusivos.",
+      placement: "Vitrina Premier",
+      reach: "Clientes recurrentes",
+      cta: "Activar tienda",
+    },
   ];
 
   function addToCart(product: Product) {
@@ -251,13 +283,21 @@ export default function BazarApp() {
         return;
       }
 
-      const role = (data.user.user_metadata.role as UserRole | undefined) ?? "cliente";
+      const { data: profile } = await supabase
+        .from("users")
+        .select("name,email,role,status")
+        .eq("id", data.user.id)
+        .single();
+      const role = (profile?.role as UserRole | undefined)
+        ?? (data.user.user_metadata.role as UserRole | undefined)
+        ?? "cliente";
+
       signInAs({
         id: data.user.id,
-        name: data.user.user_metadata.name ?? data.user.email ?? "Usuario Bazar",
-        email: data.user.email ?? email,
+        name: profile?.name ?? data.user.user_metadata.name ?? data.user.email ?? "Usuario Bazar",
+        email: profile?.email ?? data.user.email ?? email,
         role,
-        status: "Activo",
+        status: profile?.status ?? "Activo",
       });
       return;
     }
@@ -416,13 +456,25 @@ export default function BazarApp() {
             ))}
           </div>
 
-          <section className="ad-marketplace">
-            {adSlots.map(([name, price, description]) => (
-              <article key={name}>
-                <span>Espacio publicitario</span>
-                <strong>{name}</strong>
-                <p>{description}</p>
-                <mark>{price}</mark>
+          <section className="ad-marketplace" aria-label="Alianzas comerciales Bazar">
+            <header className="ad-intro">
+              <p>Alianzas comerciales</p>
+              <h2>Espacios para marcas que quieren vender dentro de Bazar</h2>
+              <span>
+                Banners, productos destacados y comercios aliados para generar ingresos por
+                publicidad ademas de la comision por venta.
+              </span>
+            </header>
+            {adSlots.map((slot) => (
+              <article className={slot.featured ? "featured" : ""} key={slot.name}>
+                <span>{slot.placement}</span>
+                <strong>{slot.name}</strong>
+                <p>{slot.description}</p>
+                <div>
+                  <mark>{slot.price}</mark>
+                  <small>{slot.reach}</small>
+                </div>
+                <button type="button">{slot.cta}</button>
               </article>
             ))}
           </section>
@@ -721,16 +773,30 @@ export default function BazarApp() {
                 </article>
               ))}
               <div className="admin-gate">
-                <h2>Acceso privado</h2>
-                <input
-                  value={adminCode}
-                  onChange={(event) => setAdminCode(event.target.value)}
-                  placeholder="Codigo administrador"
-                  type="password"
-                />
-                <button type="button" onClick={unlockAdmin}>
-                  Entrar a admin
-                </button>
+                <h2>Acceso administrador</h2>
+                {supabaseConfigured ? (
+                  <>
+                    <p>
+                      Ingresa arriba con un correo marcado como admin en Supabase. El panel no
+                      aparece para clientes ni comercios.
+                    </p>
+                    <small>Para crearlo: en Supabase cambia el rol del usuario a admin.</small>
+                  </>
+                ) : (
+                  <>
+                    <p>Modo demo local mientras conectamos Supabase.</p>
+                    <input
+                      value={adminCode}
+                      onChange={(event) => setAdminCode(event.target.value)}
+                      placeholder="Codigo administrador"
+                      type="password"
+                    />
+                    <button type="button" onClick={unlockAdmin}>
+                      Entrar a admin demo
+                    </button>
+                    <small>Codigo demo: BAZAR-ADMIN</small>
+                  </>
+                )}
               </div>
             </aside>
           </div>
@@ -1096,6 +1162,23 @@ export default function BazarApp() {
                   <span>Calcular saldo a comercio</span>
                   <span>Enviar a revision pagos sospechosos</span>
                 </article>
+              </div>
+              <div className="alliance-admin">
+                <div>
+                  <h2>Paquetes para alianzas</h2>
+                  <p>
+                    Estos espacios sirven para ofrecer propuestas comerciales a marcas,
+                    comercios grandes y aliados locales antes del lanzamiento.
+                  </p>
+                </div>
+                {adSlots.map((slot) => (
+                  <article key={slot.name}>
+                    <strong>{slot.name}</strong>
+                    <span>{slot.placement}</span>
+                    <mark>{slot.price}</mark>
+                    <p>{slot.description}</p>
+                  </article>
+                ))}
               </div>
             </>
           )}

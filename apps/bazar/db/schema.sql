@@ -13,6 +13,8 @@ create type order_status as enum (
 );
 create type payment_status as enum ('pendiente', 'aprobado', 'rechazado', 'revision');
 create type risk_level as enum ('bajo', 'medio', 'alto');
+create type verification_status as enum ('pendiente', 'en_revision', 'aprobado', 'rechazado');
+create type ad_campaign_status as enum ('borrador', 'activa', 'pausada', 'finalizada');
 
 create table users (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -38,6 +40,22 @@ create table merchants (
   updated_at timestamptz not null default now()
 );
 
+create table identity_verifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  rut text not null,
+  document_number text not null,
+  document_serial text not null,
+  front_photo_path text,
+  selfie_photo_path text,
+  status verification_status not null default 'pendiente',
+  review_notes text,
+  reviewed_by uuid references users(id),
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table products (
   id uuid primary key default gen_random_uuid(),
   merchant_id uuid not null references merchants(id),
@@ -48,6 +66,31 @@ create table products (
   stock integer not null default 0 check (stock >= 0),
   is_active boolean not null default true,
   premier_points integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table ad_packages (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  placement text not null,
+  description text not null,
+  monthly_price integer not null check (monthly_price >= 0),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table ad_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  package_id uuid not null references ad_packages(id),
+  merchant_id uuid references merchants(id),
+  advertiser_name text not null,
+  contact_email text not null,
+  title text not null,
+  destination_url text,
+  status ad_campaign_status not null default 'borrador',
+  starts_at date,
+  ends_at date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -124,6 +167,9 @@ create table audit_logs (
 );
 
 create index products_merchant_id_idx on products(merchant_id);
+create index identity_verifications_user_id_idx on identity_verifications(user_id);
+create index ad_campaigns_package_id_idx on ad_campaigns(package_id);
+create index ad_campaigns_merchant_id_idx on ad_campaigns(merchant_id);
 create index orders_buyer_user_id_idx on orders(buyer_user_id);
 create index order_items_order_id_idx on order_items(order_id);
 create index payments_order_id_idx on payments(order_id);
@@ -154,6 +200,20 @@ begin
 end;
 $$;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.users
+    where users.id = auth.uid()
+      and users.role = 'admin'
+  );
+$$;
+
 drop trigger if exists on_auth_user_created on auth.users;
 
 create trigger on_auth_user_created
@@ -162,7 +222,10 @@ for each row execute function public.handle_new_auth_user();
 
 alter table users enable row level security;
 alter table merchants enable row level security;
+alter table identity_verifications enable row level security;
 alter table products enable row level security;
+alter table ad_packages enable row level security;
+alter table ad_campaigns enable row level security;
 alter table orders enable row level security;
 alter table order_items enable row level security;
 alter table payments enable row level security;
@@ -174,17 +237,67 @@ create policy "users can read own profile"
 on users for select
 using (auth.uid() = id);
 
+create policy "admins can read all users"
+on users for select
+using (public.is_admin());
+
 create policy "users can update own profile"
 on users for update
 using (auth.uid() = id);
+
+create policy "admins can update all users"
+on users for update
+using (public.is_admin());
+
+create policy "users can manage own identity verification"
+on identity_verifications for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create policy "admins can manage identity verifications"
+on identity_verifications for all
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "admins can manage merchants"
+on merchants for all
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "merchants can read own merchant profile"
+on merchants for select
+using (auth.uid() = owner_user_id);
 
 create policy "public can read active products"
 on products for select
 using (is_active = true);
 
+create policy "admins can manage products"
+on products for all
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "public can read active ad packages"
+on ad_packages for select
+using (is_active = true);
+
+create policy "admins can manage ad packages"
+on ad_packages for all
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "admins can manage ad campaigns"
+on ad_campaigns for all
+using (public.is_admin())
+with check (public.is_admin());
+
 create policy "buyers can read own orders"
 on orders for select
 using (auth.uid() = buyer_user_id);
+
+create policy "admins can read all orders"
+on orders for select
+using (public.is_admin());
 
 create policy "buyers can read own order items"
 on order_items for select
@@ -208,6 +321,14 @@ using (
   )
 );
 
+create policy "admins can read all payments"
+on payments for select
+using (public.is_admin());
+
 create policy "users can read own premier ledger"
 on premier_ledger for select
 using (auth.uid() = user_id);
+
+create policy "admins can read all premier movements"
+on premier_ledger for select
+using (public.is_admin());
