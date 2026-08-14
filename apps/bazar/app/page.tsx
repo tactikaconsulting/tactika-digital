@@ -43,6 +43,8 @@ type SupabaseProductRow = {
   is_active: boolean;
 };
 
+const LOCAL_PRODUCTS_KEY = "bazar-local-products";
+
 function getCategoryImageClass(category: string) {
   const normalized = category.toLowerCase();
 
@@ -82,6 +84,43 @@ function mapSupabaseProduct(product: SupabaseProductRow, store = "Comercio verif
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getLocalProducts() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const storedProducts = window.localStorage.getItem(LOCAL_PRODUCTS_KEY);
+    return storedProducts ? JSON.parse(storedProducts) as Product[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalProduct(product: Product) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const storedProducts = getLocalProducts();
+  window.localStorage.setItem(LOCAL_PRODUCTS_KEY, JSON.stringify([product, ...storedProducts]));
+}
+
+function getProductSaveErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "No se pudo publicar el producto.";
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("row-level security") || normalized.includes("permission denied")) {
+    return "Supabase bloqueo el guardado por permisos. Falta aplicar las politicas de productos/comercios en SQL.";
+  }
+
+  if (normalized.includes("foreign key") || normalized.includes("violates foreign key")) {
+    return "Supabase no encontro el perfil interno del usuario. Revisa que el usuario exista en public.users con rol admin o comercio.";
+  }
+
+  return message;
 }
 
 export default function BazarApp() {
@@ -243,6 +282,19 @@ export default function BazarApp() {
         }
       });
     }
+  }, []);
+
+  useEffect(() => {
+    const storedProducts = getLocalProducts();
+
+    if (storedProducts.length === 0) {
+      return;
+    }
+
+    setLiveProducts((current) => {
+      const currentIds = new Set(current.map((product) => product.id));
+      return [...storedProducts.filter((product) => !currentIds.has(product.id)), ...current];
+    });
   }, []);
 
   useEffect(() => {
@@ -611,11 +663,15 @@ export default function BazarApp() {
       throw new Error("Inicia sesion como comercio o administrador para publicar productos.");
     }
 
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantLookupError } = await supabase
       .from("merchants")
       .select("id,name")
       .eq("owner_user_id", authUser.id)
       .maybeSingle();
+
+    if (merchantLookupError) {
+      throw new Error(merchantLookupError.message);
+    }
 
     if (merchant) {
       return merchant;
@@ -705,7 +761,9 @@ export default function BazarApp() {
       setProductDraft({ name: "", category: "Almacen", price: "", stock: "10", store: "" });
       setProductMessage("Producto publicado y visible en Comprar.");
     } catch (error) {
-      setProductMessage(error instanceof Error ? error.message : "No se pudo publicar el producto.");
+      saveLocalProduct(localProduct);
+      setLiveProducts((current) => [localProduct, ...current]);
+      setProductMessage(`${getProductSaveErrorMessage(error)} Lo deje visible temporalmente en este navegador.`);
     } finally {
       setProductSaving(false);
     }
