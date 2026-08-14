@@ -313,34 +313,40 @@ export default function BazarApp() {
 
     if (supabase) {
       setAuthLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: loginPassword,
-      });
-      setAuthLoading(false);
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password: loginPassword,
+        });
 
-      if (error || !data.user) {
-        setAuthMessage(error?.message ?? "No pudimos iniciar sesion en Supabase. Revisa correo, clave o confirmacion.");
+        if (error || !data.user) {
+          setAuthMessage(error?.message ?? "No pudimos iniciar sesion en Supabase. Revisa correo, clave o confirmacion.");
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("users")
+          .select("name,email,role,status")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        const role = (profile?.role as UserRole | undefined)
+          ?? (data.user.user_metadata.role as UserRole | undefined)
+          ?? "cliente";
+
+        signInAs({
+          id: data.user.id,
+          name: profile?.name ?? data.user.user_metadata.name ?? data.user.email ?? "Usuario Bazar",
+          email: profile?.email ?? data.user.email ?? email,
+          role,
+          status: profile?.status ?? "Activo",
+        });
         return;
+      } catch {
+        setAuthMessage("No se pudo conectar con Supabase. Revisa las variables de Vercel y haz Redeploy.");
+        return;
+      } finally {
+        setAuthLoading(false);
       }
-
-      const { data: profile } = await supabase
-        .from("users")
-        .select("name,email,role,status")
-        .eq("id", data.user.id)
-        .single();
-      const role = (profile?.role as UserRole | undefined)
-        ?? (data.user.user_metadata.role as UserRole | undefined)
-        ?? "cliente";
-
-      signInAs({
-        id: data.user.id,
-        name: profile?.name ?? data.user.user_metadata.name ?? data.user.email ?? "Usuario Bazar",
-        email: profile?.email ?? data.user.email ?? email,
-        role,
-        status: profile?.status ?? "Activo",
-      });
-      return;
     }
 
     const user = users.find((account) => account.email.toLowerCase() === email);
