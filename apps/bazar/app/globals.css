@@ -1096,6 +1096,12 @@ select {
   font-weight: 950;
 }
 
+.auth-form .secondary-auth {
+  border: 1px solid #d8d8d8;
+  background: #ffffff;
+  color: var(--blue);
+}
+
 .auth-form button:disabled {
   cursor: wait;
   background: #cfcfcf;

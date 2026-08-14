@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { money } from "./lib/format";
 import { databaseChecklist, databaseModules } from "./lib/database-plan";
 import { businessRules, initialUsers, paymentProviders, paymentSecurityRules, products } from "./lib/seed";
@@ -37,7 +37,7 @@ export default function BazarApp() {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [activeUser, setActiveUser] = useState<UserAccount | null>(null);
   const [adminCode, setAdminCode] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login");
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -47,6 +47,8 @@ export default function BazarApp() {
   const [shippingAddress, setShippingAddress] = useState("Av. Principal 123, Santiago");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
   const [accountDraft, setAccountDraft] = useState({
     name: "",
     email: "",
@@ -135,6 +137,43 @@ export default function BazarApp() {
       cta: "Activar tienda",
     },
   ];
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const errorDescription = hash.get("error_description") ?? params.get("error_description");
+    const code = params.get("code");
+    const isRecovery = hash.get("type") === "recovery" || hash.has("access_token") || Boolean(code);
+
+    if (errorDescription) {
+      setView("ingresar");
+      setAuthMode("login");
+      setAuthMessage(decodeURIComponent(errorDescription.replaceAll("+", " ")));
+      return;
+    }
+
+    if (!isRecovery) {
+      return;
+    }
+
+    setView("ingresar");
+    setAuthMode("reset");
+    setAuthMessage("Link validado. Ahora crea tu nueva clave.");
+
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          setAuthMessage(error.message);
+        }
+      });
+    }
+  }, []);
 
   function addToCart(product: Product) {
     setCart((current) => {
@@ -312,6 +351,63 @@ export default function BazarApp() {
     }
 
     signInAs(user);
+  }
+
+  async function requestPasswordRecovery() {
+    const email = loginEmail.trim().toLowerCase();
+    const supabase = getSupabaseClient();
+
+    if (!email) {
+      setAuthMessage("Escribe tu correo para enviar recuperacion.");
+      return;
+    }
+
+    if (!supabase) {
+      setAuthMessage("Supabase no esta configurado en este entorno.");
+      return;
+    }
+
+    setAuthLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    setAuthLoading(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setAuthMessage("Te enviamos un correo para cambiar la clave. Usa el ultimo link recibido.");
+  }
+
+  async function submitPasswordReset() {
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+      setAuthMessage("Supabase no esta configurado en este entorno.");
+      return;
+    }
+
+    if (resetPassword.length < 6 || resetPassword !== resetConfirm) {
+      setAuthMessage("La nueva clave debe tener al menos 6 caracteres y coincidir.");
+      return;
+    }
+
+    setAuthLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: resetPassword });
+    setAuthLoading(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setResetPassword("");
+    setResetConfirm("");
+    setAuthMode("login");
+    setAuthMessage("Clave actualizada. Ahora inicia sesion con tu nueva clave.");
+    window.history.replaceState(null, "", window.location.pathname);
   }
 
   async function submitRegistration() {
@@ -697,7 +793,34 @@ export default function BazarApp() {
                 </button>
               </div>
 
-              {authMode === "login" ? (
+              {authMode === "reset" ? (
+                <div className="auth-form">
+                  <label>
+                    Nueva clave
+                    <input
+                      value={resetPassword}
+                      onChange={(event) => setResetPassword(event.target.value)}
+                      placeholder="Minimo 6 caracteres"
+                      type="password"
+                    />
+                  </label>
+                  <label>
+                    Confirmar clave
+                    <input
+                      value={resetConfirm}
+                      onChange={(event) => setResetConfirm(event.target.value)}
+                      placeholder="Repite la nueva clave"
+                      type="password"
+                    />
+                  </label>
+                  <button type="button" onClick={submitPasswordReset} disabled={authLoading}>
+                    {authLoading ? "Guardando..." : "Guardar nueva clave"}
+                  </button>
+                  <button className="secondary-auth" type="button" onClick={() => setAuthMode("login")}>
+                    Volver a iniciar sesion
+                  </button>
+                </div>
+              ) : authMode === "login" ? (
                 <div className="auth-form">
                   <label>
                     Correo
@@ -719,6 +842,9 @@ export default function BazarApp() {
                   </label>
                   <button type="button" onClick={submitLogin} disabled={authLoading}>
                     {authLoading ? "Entrando..." : "Entrar a mi cuenta"}
+                  </button>
+                  <button className="secondary-auth" type="button" onClick={requestPasswordRecovery} disabled={authLoading}>
+                    Recuperar clave
                   </button>
                 </div>
               ) : (
