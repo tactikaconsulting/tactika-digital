@@ -35,6 +35,7 @@ type ProductDraft = {
 
 type SupabaseProductRow = {
   id: string;
+  merchant_id: string;
   name: string;
   category: string;
   price: number;
@@ -70,6 +71,7 @@ function getCategoryImageClass(category: string) {
 function mapSupabaseProduct(product: SupabaseProductRow, store = "Comercio verificado"): Product {
   return {
     id: product.id,
+    merchantId: product.merchant_id,
     name: product.name,
     store,
     category: product.category,
@@ -177,6 +179,8 @@ export default function BazarApp() {
   });
   const [productSaving, setProductSaving] = useState(false);
   const [productMessage, setProductMessage] = useState("");
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
 
   const filteredProducts = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -306,7 +310,7 @@ export default function BazarApp() {
 
     supabase
       .from("products")
-      .select("id,name,category,price,stock,premier_points,is_active")
+      .select("id,merchant_id,name,category,price,stock,premier_points,is_active")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {
@@ -339,13 +343,14 @@ export default function BazarApp() {
     setCart((current) => current.filter((item) => item.id !== productId));
   }
 
-  function confirmOrder() {
+  async function confirmOrder() {
     if (cart.length === 0) {
       return;
     }
 
+    const orderReference = `${1043 + orders.length}`;
     const order: Order = {
-      id: `BZ-${1043 + orders.length}`,
+      id: `BZ-${orderReference}`,
       status: "Pedido pagado",
       paymentStatus: "aprobado",
       paymentProvider: paymentMethod,
@@ -361,7 +366,7 @@ export default function BazarApp() {
       status: "aprobado",
       amount: orderTotal,
       createdAt: "Septiembre MVP",
-      reference: `SIM-${paymentMethod.toUpperCase().replaceAll(" ", "-")}-${1043 + orders.length}`,
+      reference: `SIM-${paymentMethod.toUpperCase().replaceAll(" ", "-")}-${orderReference}`,
       riskLevel: paymentMethod === "Transferencia" ? "medio" : "bajo",
       checks: [
         "Monto coincide con pedido",
@@ -370,9 +375,69 @@ export default function BazarApp() {
         paymentMethod === "Transferencia" ? "Requiere conciliacion bancaria" : "Webhook simulado valido",
       ],
     };
+    const supabase = getSupabaseClient();
+    const canSaveRealOrder = supabase && cart.every((item) => isUuid(item.id) && item.merchantId);
+
+    if (canSaveRealOrder) {
+      setOrderSaving(true);
+      setOrderMessage("");
+
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+
+        if (!authData.user) {
+          throw new Error("Inicia sesion como cliente para guardar el pedido real.");
+        }
+
+        const { data: orderId, error } = await supabase.rpc("place_bazar_order", {
+          p_items: cart.map((item) => ({
+            product_id: item.id,
+            quantity: item.quantity,
+          })),
+          p_delivery_method: deliveryMethod,
+          p_shipping_address: shippingAddress,
+          p_payment_provider: paymentMethod,
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        order.id = typeof orderId === "string" ? orderId : order.id;
+        payment.orderId = order.id;
+        payment.reference = `SUPABASE-${String(order.id).slice(0, 8)}`;
+        setOrderMessage("Pedido guardado real en Supabase.");
+      } catch (error) {
+        setOrderMessage(
+          error instanceof Error
+            ? `${error.message}. El pedido quedo solo como simulacion en esta sesion.`
+            : "El pedido quedo solo como simulacion en esta sesion.",
+        );
+      } finally {
+        setOrderSaving(false);
+      }
+    } else {
+      setOrderMessage("Pedido simulado: usa productos guardados en Supabase para registrar pedido real.");
+    }
 
     setOrders((current) => [order, ...current]);
     setPayments((current) => [payment, ...current]);
+    setLiveProducts((current) =>
+      current.map((product) => {
+        const purchased = cart.find((item) => item.id === product.id);
+
+        if (!purchased) {
+          return product;
+        }
+
+        const nextStock = Math.max(0, (product.stock ?? 0) - purchased.quantity);
+        return {
+          ...product,
+          stock: nextStock,
+          tag: nextStock > 0 ? `${nextStock} disponibles` : "Sin stock",
+        };
+      }),
+    );
     setCart([]);
     setCheckoutStep("carrito");
     setActiveUser((current) => current ?? initialUsers[0]);
@@ -394,7 +459,7 @@ export default function BazarApp() {
       return;
     }
 
-    confirmOrder();
+    void confirmOrder();
   }
 
   function signInAs(user: UserAccount) {
@@ -750,7 +815,7 @@ export default function BazarApp() {
           premier_points: Math.max(1, Math.round(price / 100)),
           is_active: true,
         })
-        .select("id,name,category,price,stock,premier_points,is_active")
+        .select("id,merchant_id,name,category,price,stock,premier_points,is_active")
         .single();
 
       if (error || !data) {
@@ -1036,11 +1101,13 @@ export default function BazarApp() {
                   <strong>{premier} pts</strong>
                 </div>
 
-                <button type="button" onClick={continueCheckout} disabled={cart.length === 0}>
+                <button type="button" onClick={continueCheckout} disabled={cart.length === 0 || orderSaving}>
+                  {orderSaving && "Guardando pedido..."}
                   {checkoutStep === "carrito" && "Continuar a entrega"}
                   {checkoutStep === "entrega" && "Continuar a pago"}
-                  {checkoutStep === "pago" && `Pagar con ${paymentMethod}`}
+                  {checkoutStep === "pago" && !orderSaving && `Pagar con ${paymentMethod}`}
                 </button>
+                {orderMessage && <p className="product-message">{orderMessage}</p>}
                 {checkoutStep !== "carrito" && (
                   <button
                     className="secondary-action"

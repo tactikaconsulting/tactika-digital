@@ -4,6 +4,7 @@ export type UserRole = "cliente" | "comercio" | "admin";
 
 export type Product = {
   id: string;
+  merchantId?: string;
   name: string;
   store: string;
   category: string;
