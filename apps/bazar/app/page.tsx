@@ -519,8 +519,9 @@ export default function BazarApp() {
       .toString(36)
       .slice(2, 6)
       .toUpperCase()}`;
+    const checkoutReference = `BZ-${orderReference}`;
     const order: Order = {
-      id: `BZ-${orderReference}`,
+      id: checkoutReference,
       status: "Pedido pagado",
       paymentStatus: "aprobado",
       paymentProvider: paymentMethod,
@@ -586,7 +587,7 @@ export default function BazarApp() {
         void loadRealOrders();
 
         if (paymentMethod === "Getnet") {
-          await redirectToGetnet(order.id, orderTotal);
+          await redirectToGetnet(checkoutReference, orderTotal);
           return;
         }
 
@@ -602,7 +603,7 @@ export default function BazarApp() {
         if (paymentMethod === "Getnet") {
           try {
             setOrderMessage(`${orderErrorMessage}. Abriendo Getnet como pago de prueba...`);
-            await redirectToGetnet(order.id, orderTotal);
+            await redirectToGetnet(checkoutReference, orderTotal);
             return;
           } catch (paymentError) {
             setOrderMessage(
