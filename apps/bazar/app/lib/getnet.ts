@@ -34,13 +34,44 @@ function getGetnetConfig() {
   const login = process.env.GETNET_LOGIN;
   const tranKey = process.env.GETNET_TRANKEY;
   const environment = process.env.GETNET_ENVIRONMENT === "production" ? "production" : "integration";
+  const configuredBaseUrl = process.env.GETNET_BASE_URL
+    ?? (environment === "production" ? GETNET_PRODUCTION_URL : GETNET_TEST_URL);
 
   return {
     ready: Boolean(login && tranKey),
     login,
     tranKey,
-    baseUrl: process.env.GETNET_BASE_URL ?? (environment === "production" ? GETNET_PRODUCTION_URL : GETNET_TEST_URL),
+    baseUrl: configuredBaseUrl.replace(/\/$/, ""),
   };
+}
+
+async function getGetnetErrorMessage(response: Response) {
+  const body = await response.text().catch(() => "");
+
+  if (!body) {
+    return `Getnet rechazo la solicitud (${response.status}).`;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as {
+      status?: {
+        message?: string;
+        reason?: string;
+        status?: string;
+      };
+      message?: string;
+      error?: string;
+    };
+    const detail = parsed.status?.message
+      ?? parsed.status?.reason
+      ?? parsed.message
+      ?? parsed.error
+      ?? body;
+
+    return `Getnet rechazo la solicitud (${response.status}): ${detail}`;
+  } catch {
+    return `Getnet rechazo la solicitud (${response.status}): ${body.slice(0, 280)}`;
+  }
 }
 
 function getAuth() {
@@ -88,7 +119,7 @@ export async function createGetnetRequest({
 }) {
   const { baseUrl, auth } = getAuth();
   const expiration = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-  const response = await fetch(`${baseUrl}/api/session`, {
+  const response = await fetch(`${baseUrl}/api/session/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -113,7 +144,7 @@ export async function createGetnetRequest({
   });
 
   if (!response.ok) {
-    throw new Error(`Getnet rechazo la creacion del pago (${response.status}).`);
+    throw new Error(await getGetnetErrorMessage(response));
   }
 
   return response.json() as Promise<GetnetCreateResponse>;
@@ -130,7 +161,7 @@ export async function getGetnetRequestInformation(requestId: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Getnet rechazo la consulta del pago (${response.status}).`);
+    throw new Error(await getGetnetErrorMessage(response));
   }
 
   return response.json() as Promise<GetnetRequestInfo>;
