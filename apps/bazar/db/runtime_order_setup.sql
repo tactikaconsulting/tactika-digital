@@ -4,6 +4,7 @@
 
 drop function if exists public.place_bazar_order(jsonb, text, text, text);
 drop function if exists public.list_bazar_orders();
+drop function if exists public.confirm_bazar_payment(uuid, text, text, text);
 
 create or replace function public.place_bazar_order(
   p_items jsonb,
@@ -94,7 +95,7 @@ begin
   )
   values (
     v_user_id,
-    'pago_aprobado',
+    'pendiente_pago',
     v_subtotal,
     v_delivery_fee,
     v_service_fee,
@@ -154,11 +155,11 @@ begin
     v_order_id,
     coalesce(p_payment_provider, 'Pago simulado'),
     'BAZAR-' || v_order_id::text,
-    'aprobado',
+    'pendiente',
     case when coalesce(p_payment_provider, '') = 'Transferencia' then 'medio'::risk_level else 'bajo'::risk_level end,
     v_total,
-    'checkout_mvp_aprobado',
-    now()
+    'checkout_mvp_pendiente',
+    null
   )
   returning id into v_payment_id;
 
@@ -172,17 +173,138 @@ begin
   )
   values (
     v_payment_id,
-    'checkout_mvp_confirmed',
+    'checkout_mvp_created',
     true,
     true,
     true,
     jsonb_build_object('order_id', v_order_id, 'provider', p_payment_provider)
   );
 
-  insert into public.premier_ledger (user_id, order_id, points, reason)
-  values (v_user_id, v_order_id, v_premier, 'Compra aprobada en Bazar');
-
   return v_order_id;
+end;
+$$;
+
+create or replace function public.confirm_bazar_payment(
+  p_order_id uuid,
+  p_payment_status text,
+  p_provider_payment_id text default null,
+  p_raw_status text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_status payment_status;
+  v_order_status order_status;
+  v_payment_id uuid;
+  v_premier integer;
+  v_buyer_user_id uuid;
+  v_previous_order_status order_status;
+begin
+  if v_user_id is null then
+    raise exception 'Debes iniciar sesion para confirmar el pago.';
+  end if;
+
+  select buyer_user_id, premier_points, status
+  into v_buyer_user_id, v_premier, v_previous_order_status
+  from public.orders
+  where id = p_order_id
+  for update;
+
+  if not found then
+    raise exception 'Pedido no encontrado.';
+  end if;
+
+  if v_buyer_user_id <> v_user_id and not public.is_admin() then
+    raise exception 'No tienes permiso para confirmar este pedido.';
+  end if;
+
+  v_status := case lower(coalesce(p_payment_status, ''))
+    when 'approved' then 'aprobado'::payment_status
+    when 'aprobado' then 'aprobado'::payment_status
+    when 'rejected' then 'rechazado'::payment_status
+    when 'rechazado' then 'rechazado'::payment_status
+    when 'pending' then 'pendiente'::payment_status
+    when 'pendiente' then 'pendiente'::payment_status
+    else 'revision'::payment_status
+  end;
+
+  v_order_status := case v_status
+    when 'aprobado' then 'pago_aprobado'::order_status
+    when 'rechazado' then 'cancelado'::order_status
+    when 'pendiente' then 'pendiente_pago'::order_status
+    else 'revision'::order_status
+  end;
+
+  select id
+  into v_payment_id
+  from public.payments
+  where order_id = p_order_id
+  order by created_at desc
+  limit 1
+  for update;
+
+  if not found then
+    raise exception 'Pago no encontrado para el pedido.';
+  end if;
+
+  update public.payments
+  set status = v_status,
+      provider_payment_id = coalesce(nullif(p_provider_payment_id, ''), provider_payment_id),
+      risk = case when v_status = 'aprobado' then 'bajo'::risk_level else 'medio'::risk_level end,
+      raw_status = coalesce(p_raw_status, raw_status),
+      confirmed_at = case when v_status in ('aprobado', 'rechazado') then now() else confirmed_at end
+  where id = v_payment_id;
+
+  update public.orders
+  set status = v_order_status,
+      updated_at = now()
+  where id = p_order_id;
+
+  if v_status = 'rechazado' and v_previous_order_status <> 'cancelado' then
+    update public.products
+    set stock = products.stock + order_items.quantity,
+        updated_at = now()
+    from public.order_items
+    where order_items.product_id = products.id
+      and order_items.order_id = p_order_id;
+  end if;
+
+  insert into public.payment_events (
+    payment_id,
+    event_type,
+    signature_valid,
+    amount_matches,
+    reference_unique,
+    payload
+  )
+  values (
+    v_payment_id,
+    'getnet_status_confirmed',
+    true,
+    true,
+    true,
+    jsonb_build_object(
+      'order_id', p_order_id,
+      'payment_status', v_status,
+      'provider_payment_id', p_provider_payment_id,
+      'raw_status', p_raw_status
+    )
+  );
+
+  if v_status = 'aprobado' then
+    insert into public.premier_ledger (user_id, order_id, points, reason)
+    select v_buyer_user_id, p_order_id, v_premier, 'Compra aprobada en Bazar'
+    where not exists (
+      select 1
+      from public.premier_ledger
+      where order_id = p_order_id
+        and reason = 'Compra aprobada en Bazar'
+    );
+  end if;
 end;
 $$;
 
@@ -263,6 +385,7 @@ end;
 $$;
 
 grant execute on function public.place_bazar_order(jsonb, text, text, text) to authenticated;
+grant execute on function public.confirm_bazar_payment(uuid, text, text, text) to authenticated;
 grant execute on function public.list_bazar_orders() to authenticated;
 
 drop policy if exists "buyers can read own orders" on public.orders;

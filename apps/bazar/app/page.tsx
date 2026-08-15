@@ -385,6 +385,7 @@ export default function BazarApp() {
         const checkout = JSON.parse(storedCheckout) as {
           requestId?: number;
           orderId?: string;
+          supabaseOrderId?: string;
         };
 
         if (!checkout.requestId || (getnetOrder && checkout.orderId !== getnetOrder)) {
@@ -408,6 +409,32 @@ export default function BazarApp() {
             }
 
             setOrderMessage(data.message ?? "Estado Getnet actualizado.");
+
+            if (checkout.supabaseOrderId) {
+              const supabase = getSupabaseClient();
+              const paymentStatus = data.status === "approved"
+                ? "aprobado"
+                : data.status === "rejected"
+                  ? "rechazado"
+                  : data.status ?? "revision";
+
+              if (supabase) {
+                void supabase.rpc("confirm_bazar_payment", {
+                  p_order_id: checkout.supabaseOrderId,
+                  p_payment_status: paymentStatus,
+                  p_provider_payment_id: String(data.requestId ?? checkout.requestId),
+                  p_raw_status: data.message ?? paymentStatus,
+                }).then(({ error }) => {
+                  if (error) {
+                    setOrderMessage(`${data.message ?? "Estado Getnet actualizado."} Supabase no pudo actualizar el pedido: ${error.message}`);
+                    return;
+                  }
+
+                  void loadRealOrders();
+                });
+              }
+            }
+
             localStorage.removeItem("bazar:getnet:last");
           })
           .catch((error) => {
@@ -533,7 +560,7 @@ export default function BazarApp() {
     form.submit();
   }
 
-  async function redirectToGetnet(orderId: string, amount: number) {
+  async function redirectToGetnet(orderId: string, amount: number, supabaseOrderId?: string) {
     const response = await fetch("/api/payments/getnet/create", {
       method: "POST",
       headers: {
@@ -558,6 +585,7 @@ export default function BazarApp() {
         JSON.stringify({
           requestId: data.requestId,
           orderId,
+          supabaseOrderId,
         }),
       );
     }
@@ -577,8 +605,8 @@ export default function BazarApp() {
     const checkoutReference = `BZ-${orderReference}`;
     const order: Order = {
       id: checkoutReference,
-      status: "Pedido pagado",
-      paymentStatus: "aprobado",
+      status: paymentMethod === "Getnet" ? "pendiente pago" : "Pedido pagado",
+      paymentStatus: paymentMethod === "Getnet" ? "pendiente" : "aprobado",
       paymentProvider: paymentMethod,
       total: orderTotal,
       commission,
@@ -589,7 +617,7 @@ export default function BazarApp() {
       id: `PAY-${2200 + payments.length}`,
       orderId: order.id,
       provider: paymentMethod,
-      status: "aprobado",
+      status: paymentMethod === "Getnet" ? "pendiente" : "aprobado",
       amount: orderTotal,
       createdAt: "Septiembre MVP",
       reference: `SIM-${paymentMethod.toUpperCase().replaceAll(" ", "-")}-${orderReference}`,
@@ -642,7 +670,7 @@ export default function BazarApp() {
         void loadRealOrders();
 
         if (paymentMethod === "Getnet") {
-          await redirectToGetnet(checkoutReference, orderTotal);
+          await redirectToGetnet(checkoutReference, orderTotal, typeof orderId === "string" ? orderId : undefined);
           return;
         }
 
