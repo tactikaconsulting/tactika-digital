@@ -19,6 +19,7 @@ export async function GET(request: Request) {
   if (!requestId) {
     return redirectToApp(request, {
       getnet_status: "pending",
+      getnet_order: orderId ?? "",
       getnet_message: "Retorno recibido. La notificacion de Getnet actualizara el pago.",
     });
   }

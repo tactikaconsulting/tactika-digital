@@ -363,6 +363,7 @@ export default function BazarApp() {
     const webpayMessage = params.get("webpay_message");
     const getnetStatus = params.get("getnet_status");
     const getnetMessage = params.get("getnet_message");
+    const getnetOrder = params.get("getnet_order");
 
     if (!webpayStatus && !getnetStatus) {
       return;
@@ -372,6 +373,50 @@ export default function BazarApp() {
     setCustomerSection("pagos");
     setOrderMessage(getnetMessage ?? webpayMessage ?? "Respuesta de pago recibida.");
     window.history.replaceState(null, "", window.location.pathname);
+
+    if (getnetStatus === "pending") {
+      const storedCheckout = localStorage.getItem("bazar:getnet:last");
+
+      if (!storedCheckout) {
+        return;
+      }
+
+      try {
+        const checkout = JSON.parse(storedCheckout) as {
+          requestId?: number;
+          orderId?: string;
+        };
+
+        if (!checkout.requestId || (getnetOrder && checkout.orderId !== getnetOrder)) {
+          return;
+        }
+
+        fetch("/api/payments/getnet/status", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requestId: checkout.requestId,
+            orderId: checkout.orderId,
+          }),
+        })
+          .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+          .then(({ ok, data }) => {
+            if (!ok) {
+              throw new Error(data.error ?? "No se pudo confirmar Getnet.");
+            }
+
+            setOrderMessage(data.message ?? "Estado Getnet actualizado.");
+            localStorage.removeItem("bazar:getnet:last");
+          })
+          .catch((error) => {
+            setOrderMessage(error instanceof Error ? error.message : "No se pudo confirmar Getnet.");
+          });
+      } catch {
+        localStorage.removeItem("bazar:getnet:last");
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -505,6 +550,16 @@ export default function BazarApp() {
 
     if (!response.ok || !data.processUrl) {
       throw new Error(data.error ?? "No se pudo iniciar Getnet.");
+    }
+
+    if (data.requestId) {
+      localStorage.setItem(
+        "bazar:getnet:last",
+        JSON.stringify({
+          requestId: data.requestId,
+          orderId,
+        }),
+      );
     }
 
     window.location.href = data.processUrl;
